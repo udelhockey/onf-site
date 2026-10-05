@@ -69,14 +69,17 @@ Astra theme + Elementor/Elementor Pro (+ Ultimate Addons), Classic Editor plugin
 - [ ] **Decide: build our own vs GiveWP Essentials.** Build step 1 (data model + player migration) comes next and is useful under either option; go/no-go on the full build before Phase 3.
 - [x] Donations build step 1 written: `onf-core` 0.2.0 — `player` post type moved from CPT UI into `onf-core` (same name, IDs, URLs), events, funds, entries/gifts/donors tables, Players/Events/Gifts admin, manual gifts, CSV export, Tools → ONF Migration (2026-10-04). Smoke-tested locally; not yet on staging.
 - [x] Donor management (`onf-core` 0.3.0, 2026-10-04): Gifts → Donors list with lifetime total, gift count, first/last gift, search, sort, CSV export; donor page to edit details (name, email, company, phone, address, private notes) with full gift history; merge duplicate donors (gifts move, blanks filled, other email kept in notes); delete only donors with no gifts; email optional (check/cash givers); manual gift form picks an existing donor. Gifts keep the donor name/email as given at the time, so receipts don't change when a donor is edited.
-- [ ] Install `onf-core` 0.3.0 on staging, run the migration (dry run first), check the login logo, then remove My WP Login Logo. After that CPT UI can go too (it only registered `player`).
-- [ ] Review the migrated event names (old categories renamed, e.g. 2018Player → 2018 Face-off for Teen Mental Health, 2019Adult → 2019 Face-off for Juvenile Arthritis, 2022Adult → 2022 Face-off for Teen Mental Health) and add dates/venues. Events are created as closed drafts.
+- [x] `onf-core` 0.3.0 installed on staging and migration run (2026-10-05): 21 events (closed drafts), 296 entries covering 135 players, contact fields filled for 74 players, GiveWP form IDs on all 150, old ACF group disabled. Player pages still load with their GiveWP forms.
+- [ ] Remove My WP Login Logo (check the `onf-core` login logo) and Custom Post Type UI on staging.
+- [ ] Review the migrated event names (old categories renamed, e.g. 2018Player → 2018 Face-off for Teen Mental Health, 2019Adult → 2019 Face-off for Juvenile Arthritis, 2022Adult → 2022 Face-off for Teen Mental Health) and add dates/venues. Events are created as closed drafts, dated by their first GiveWP form (often months before the event, e.g. 2021 Chowder Cup shows 2020-04-26) — set real start dates.
 - [ ] **Brand blue:** adopt logo blue **#29ABE2** (C70 M15 Y0 K0) in place of Ice Blue #6EC1E4? (recommended) — decide at start of Phase 2.
 - [ ] Wordmark font name — ask original designer or run a rendered wordmark through WhatTheFont/Matcherator. Not blocking.
 - [x] Player fields: keep all existing; add favorite NHL team + sponsor.
 - [x] Name-merge list confirmed (Nick/Nicholas Butler = same person).
 - [ ] Decide on remaining "decide" plugins: Jetpack, iframe, Post Type Switcher, Simple Analytics, SiteGround AI Agent.
 - [ ] Ask Stripe about nonprofit discounted pricing.
+- [ ] Favorite NHL team → pick-list of the 32 teams (with step 3 player pages). One-time cleanup maps the free-text values (Flyers / Philly / Flywrs → Philadelphia Flyers); unmatched ones left for Bob.
+- [ ] Registration form: replace the Favorite NHL Team text box with a dropdown — on live, after Nov 11, re-mapping the Zapier → Google Sheet step in the same sitting (a new Ninja Forms field has a new key).
 - [ ] Export all GiveWP data from **live** at cutover (donations, donors, forms, per-player totals) + Ninja Forms submissions + Duplicator archive.
 - [x] GiveWP add-ons in use: Stripe, PDF Receipts, Email Reports, Manual Donations (still used 2024–26), Elementor widgets.
 - [x] Phase 0 audit — `docs/phase0-audit.md` (2026-10-03). Staging donations total $144,341.42 / 1,761 gifts through 2026-06-23.
