@@ -5,9 +5,9 @@ Code for the opennetfoundation.org redesign.
 | Folder | What it is | Installs as |
 |---|---|---|
 | `onf-theme/` | Block theme. `theme.json` is the single source of design truth. | Appearance → Themes |
-| `onf-core/` | ONF features: players, events, registration hooks, login branding. Keeps ONF logic separate from the donation plugin (Mission). | Plugins |
+| `onf-core/` | ONF features: players, events, funds, gifts, registration hooks, login branding. | Plugins |
 
-Plan, decisions and audit live in the Claude project docs (`ONF-Redesign-Plan.md`, `ONF-Phase0-Audit.md`).
+Plan, decisions and audit live in `docs/` (start with `docs/plan.md`).
 
 ## Installing on staging
 

@@ -50,7 +50,7 @@ Astra theme + Elementor/Elementor Pro (+ Ultimate Addons), Classic Editor plugin
 - **Fund** = `onf_fund` post type for non-player causes (General, Food Bank, Dolan Fund, Holiday Giving, rinks).
 - **Gift** = `onf_gifts` table, tagged with player / event / fund; every total is a sum over those tags.
 - **All-time totals come from real rows:** GiveWP history (1,761+ completed gifts) is imported into `onf_gifts`, not frozen.
-- Existing reality (staging, 2026-10-04): 150 published `player` posts, one per person (titles unique), each with a featured image and a `[give_form]` shortcode (137 with one form, 13 with two). Event membership = `give_forms_category` terms on the player post: **296 player-event links** across 18 event terms (2018Player → 2026 Rouxster Shootout). Favorite NHL team + company exist only in Ninja Forms submissions.
+- Existing reality (staging, 2026-10-04): 150 published `player` posts, one per person (titles unique), each with a featured image and a `[give_form]` shortcode (137 with one form, 13 with two). Event membership = `give_forms_category` terms on the player post: **296 player-event links** across 18 event terms (2018Player → 2026 Rouxster Shootout). Favorite NHL team + company exist only in Ninja Forms submissions; the migration copies email, phone, favorite team and company from the latest matching Event Registration (73 of 150 players match by name; the rest stay blank — fine per Bob).
 
 ## Registration
 - **Stays on Ninja Forms + Zapier → Google Sheet.** Fields today: name, email, phone, position, additional info, company (if sponsored), favorite NHL team, address, jersey size. No fee.
@@ -67,7 +67,9 @@ Astra theme + Elementor/Elementor Pro (+ Ultimate Addons), Classic Editor plugin
 - [x] Connect WPVibe (staging) to Claude Code on the Mac — verified 2026-10-04.
 - [x] Donation needs confirmed; Mission and GiveWP Elite ruled out; tributes not needed.
 - [ ] **Decide: build our own vs GiveWP Essentials.** Build step 1 (data model + player migration) comes next and is useful under either option; go/no-go on the full build before Phase 3.
-- [ ] Install `onf-core` 0.1.0 on staging, check the login logo, then remove My WP Login Logo.
+- [x] Donations build step 1 written: `onf-core` 0.2.0 — `player` post type moved from CPT UI into `onf-core` (same name, IDs, URLs), events, funds, entries/gifts/donors tables, Players/Events/Gifts admin, manual gifts, CSV export, Tools → ONF Migration (2026-10-04). Smoke-tested locally; not yet on staging.
+- [ ] Install `onf-core` 0.2.0 on staging, run the migration (dry run first), check the login logo, then remove My WP Login Logo. After that CPT UI can go too (it only registered `player`).
+- [ ] Review the migrated event names (old categories renamed, e.g. 2018Player → 2018 Face-off for Teen Mental Health, 2019Adult → 2019 Face-off for Juvenile Arthritis, 2022Adult → 2022 Face-off for Teen Mental Health) and add dates/venues. Events are created as closed drafts.
 - [ ] **Brand blue:** adopt logo blue **#29ABE2** (C70 M15 Y0 K0) in place of Ice Blue #6EC1E4? (recommended) — decide at start of Phase 2.
 - [ ] Wordmark font name — ask original designer or run a rendered wordmark through WhatTheFont/Matcherator. Not blocking.
 - [x] Player fields: keep all existing; add favorite NHL team + sponsor.
