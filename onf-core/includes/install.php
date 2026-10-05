@@ -1,13 +1,13 @@
 <?php
 /**
- * Database tables: entries (player in an event), gifts, donors.
+ * Database tables: entries (player in an event), gifts, donors, email log.
  * Donor email is optional (check/cash givers); when present it is unique.
  * Created on activation; upgraded when ONF_CORE_DB_VERSION changes.
  */
 
 defined( 'ABSPATH' ) || exit;
 
-const ONF_CORE_DB_VERSION = '2';
+const ONF_CORE_DB_VERSION = '3';
 
 function onf_core_activate() {
 	onf_core_install_tables();
@@ -30,6 +30,14 @@ function onf_core_install_tables() {
 	require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
 	$charset = $wpdb->get_charset_collate();
+	$gifts   = $wpdb->prefix . 'onf_gifts';
+
+	// v3: stripe_session_id becomes NULL-able and unique (one gift per Stripe payment).
+	// Existing blank values must become NULL first or the unique key can't be added.
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $gifts ) ) === $gifts ) {
+		$wpdb->query( "ALTER TABLE $gifts MODIFY stripe_session_id varchar(191) NULL DEFAULT NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "UPDATE $gifts SET stripe_session_id = NULL WHERE stripe_session_id = ''" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
 
 	// dbDelta is picky: one column per line, two spaces after PRIMARY KEY.
 	dbDelta(
@@ -67,7 +75,7 @@ function onf_core_install_tables() {
 			source varchar(20) NOT NULL DEFAULT 'manual',
 			method varchar(20) NOT NULL DEFAULT '',
 			reference varchar(191) NOT NULL DEFAULT '',
-			stripe_session_id varchar(191) NOT NULL DEFAULT '',
+			stripe_session_id varchar(191) NULL DEFAULT NULL,
 			stripe_payment_intent varchar(191) NOT NULL DEFAULT '',
 			givewp_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			receipt_number varchar(32) NOT NULL DEFAULT '',
@@ -82,6 +90,7 @@ function onf_core_install_tables() {
 			KEY donor_id (donor_id),
 			KEY status (status),
 			KEY givewp_id (givewp_id),
+			UNIQUE KEY stripe_session_id (stripe_session_id),
 			KEY stripe_payment_intent (stripe_payment_intent)
 		) $charset;"
 	);
@@ -107,6 +116,26 @@ function onf_core_install_tables() {
 			KEY last_name (last_name)
 		) $charset;"
 	);
+
+	dbDelta(
+		"CREATE TABLE {$wpdb->prefix}onf_email_log (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			gift_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			type varchar(20) NOT NULL DEFAULT '',
+			recipient varchar(255) NOT NULL DEFAULT '',
+			subject varchar(255) NOT NULL DEFAULT '',
+			body longtext NULL,
+			status varchar(20) NOT NULL DEFAULT 'sent',
+			error text NULL,
+			created_at datetime NOT NULL,
+			PRIMARY KEY  (id),
+			KEY gift_id (gift_id),
+			KEY created_at (created_at)
+		) $charset;"
+	);
+
+	// Receipt numbers continue GiveWP's sequence. Not autoloaded: it's read fresh from the database.
+	add_option( 'onf_receipt_next', 26704, '', false );
 
 	update_option( 'onf_core_db_version', ONF_CORE_DB_VERSION );
 }

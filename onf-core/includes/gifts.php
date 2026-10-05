@@ -68,7 +68,7 @@ function onf_insert_gift( array $data ) {
 		'source'                => array_key_exists( $data['source'] ?? '', onf_gift_sources() ) ? $data['source'] : 'manual',
 		'method'                => array_key_exists( $data['method'] ?? '', onf_gift_methods() ) ? $data['method'] : '',
 		'reference'             => sanitize_text_field( $data['reference'] ?? '' ),
-		'stripe_session_id'     => sanitize_text_field( $data['stripe_session_id'] ?? '' ),
+		'stripe_session_id'     => sanitize_text_field( $data['stripe_session_id'] ?? '' ) ?: null, // NULL: unique key ignores it.
 		'stripe_payment_intent' => sanitize_text_field( $data['stripe_payment_intent'] ?? '' ),
 		'givewp_id'             => absint( $data['givewp_id'] ?? 0 ),
 		'receipt_number'        => sanitize_text_field( $data['receipt_number'] ?? '' ),
@@ -78,13 +78,16 @@ function onf_insert_gift( array $data ) {
 		'updated_at'            => $now,
 	);
 
-	$row['donor_id'] = onf_resolve_gift_donor( absint( $data['donor_id'] ?? 0 ), $row );
+	$row['donor_id'] = onf_resolve_gift_donor( absint( $data['donor_id'] ?? 0 ), $row, (array) ( $data['donor_details'] ?? array() ) );
 
 	if ( ! $wpdb->insert( onf_gifts_table(), $row ) ) {
 		return new WP_Error( 'onf_gift_db', __( 'The gift could not be saved.', 'onf-core' ) );
 	}
 	$gift_id = (int) $wpdb->insert_id;
 
+	if ( 'completed' === $row['status'] ) {
+		onf_assign_receipt_number( $gift_id );
+	}
 	onf_flush_totals();
 	do_action( 'onf_gift_recorded', $gift_id, $row );
 	return $gift_id;
@@ -104,10 +107,47 @@ function onf_set_gift_status( int $gift_id, string $status ) {
 		array( 'id' => $gift_id )
 	);
 	if ( $updated ) {
+		if ( 'completed' === $status ) {
+			onf_assign_receipt_number( $gift_id );
+		}
 		onf_flush_totals();
 		do_action( 'onf_gift_status_changed', $gift_id, $status );
 	}
 	return (bool) $updated;
+}
+
+/**
+ * Give a completed gift the next receipt number (prefix + sequence), once.
+ * GiveWP-imported gifts keep their own numbers.
+ */
+function onf_assign_receipt_number( int $gift_id ) {
+	global $wpdb;
+	$gift = onf_get_gift( $gift_id );
+	if ( ! $gift || '' !== $gift->receipt_number || 'givewp_import' === $gift->source ) {
+		return;
+	}
+	add_option( 'onf_receipt_next', 26704, '', false );
+	// Atomic increment, so two gifts at the same moment never share a number.
+	$wpdb->query( "UPDATE {$wpdb->options} SET option_value = LAST_INSERT_ID(option_value + 1) WHERE option_name = 'onf_receipt_next'" );
+	$number = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' ) - 1;
+	wp_cache_delete( 'onf_receipt_next', 'options' );
+
+	$receipt = onf_setting( 'receipt_prefix' ) . str_pad( (string) $number, (int) onf_setting( 'receipt_padding' ), '0', STR_PAD_LEFT );
+	$wpdb->update( onf_gifts_table(), array( 'receipt_number' => $receipt ), array( 'id' => $gift_id ) );
+}
+
+/**
+ * What a gift was for, in words: "Anthony Petrucci (2026 Herb Mitchell Cup)", "Food Bank of Delaware", …
+ */
+function onf_gift_for_label( $gift ) {
+	$player = $gift->player_id ? get_the_title( $gift->player_id ) : '';
+	$event  = $gift->event_id ? get_the_title( $gift->event_id ) : '';
+	$fund   = $gift->fund_id ? get_the_title( $gift->fund_id ) : '';
+	$main   = $player ? $player : $fund;
+	if ( $main && $event ) {
+		return "$main ($event)";
+	}
+	return $main ? $main : ( $event ? $event : __( 'General donation', 'onf-core' ) );
 }
 
 function onf_get_gift( int $gift_id ) {

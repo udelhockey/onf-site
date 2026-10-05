@@ -13,6 +13,7 @@ add_action(
 		add_menu_page( __( 'Gifts', 'onf-core' ), __( 'Gifts', 'onf-core' ), ONF_GIFTS_CAP, 'onf-gifts', 'onf_render_gifts_page', 'dashicons-money-alt', 26 );
 		add_submenu_page( 'onf-gifts', __( 'All gifts', 'onf-core' ), __( 'All gifts', 'onf-core' ), ONF_GIFTS_CAP, 'onf-gifts', 'onf_render_gifts_page' );
 		add_submenu_page( 'onf-gifts', __( 'Add manual gift', 'onf-core' ), __( 'Add manual gift', 'onf-core' ), ONF_GIFTS_CAP, 'onf-add-gift', 'onf_render_add_gift_page' );
+		add_submenu_page( 'onf-gifts', __( 'Email log', 'onf-core' ), __( 'Email log', 'onf-core' ), ONF_GIFTS_CAP, 'onf-email-log', 'onf_render_email_log_page' );
 	}
 );
 
@@ -134,6 +135,15 @@ class ONF_Gifts_List_Table extends WP_List_Table {
 			/* translators: %s: status name */
 			$actions[ $status ] = sprintf( '<a href="%s">%s</a>', esc_url( $url ), esc_html( sprintf( __( 'Mark %s', 'onf-core' ), strtolower( $label ) ) ) );
 		}
+		if ( 'completed' === $item->status || 'refunded' === $item->status ) {
+			$pdf                = wp_nonce_url( admin_url( 'admin-post.php?action=onf_receipt_pdf&gift=' . (int) $item->id ), 'onf_receipt_pdf_' . $item->id );
+			$actions['receipt'] = sprintf( '<a href="%s" target="_blank">%s</a>', esc_url( $pdf ), esc_html__( 'Receipt PDF', 'onf-core' ) );
+		}
+		if ( 'completed' === $item->status && is_email( $item->donor_email ) ) {
+			$resend            = wp_nonce_url( admin_url( 'admin-post.php?action=onf_resend_receipt&gift=' . (int) $item->id ), 'onf_resend_receipt_' . $item->id );
+			$actions['resend'] = sprintf( '<a href="%s">%s</a>', esc_url( $resend ), esc_html__( 'Resend receipt', 'onf-core' ) );
+		}
+		$out .= $item->receipt_number ? '<br><small>' . esc_html( $item->receipt_number ) . '</small>' : '';
 		return $out . $this->row_actions( $actions );
 	}
 
@@ -269,11 +279,12 @@ function onf_render_gifts_page() {
 function onf_render_gift_notice() {
 	// phpcs:disable WordPress.Security.NonceVerification.Recommended -- display only.
 	$messages = array(
-		'added'         => __( 'Gift added.', 'onf-core' ),
+		'added'         => __( 'Gift added. Any emails are listed in Gifts → Email log.', 'onf-core' ),
 		'updated'       => __( 'Gift status updated.', 'onf-core' ),
 		'donor_saved'   => __( 'Donor saved.', 'onf-core' ),
 		'donor_merged'  => __( 'Donors merged.', 'onf-core' ),
 		'donor_deleted' => __( 'Donor deleted.', 'onf-core' ),
+		'resent'        => __( 'Receipt sent again (see Gifts → Email log).', 'onf-core' ),
 	);
 	$key      = sanitize_key( $_GET['onf_msg'] ?? '' );
 	$error    = sanitize_text_field( wp_unslash( $_GET['onf_error'] ?? '' ) );
@@ -339,6 +350,10 @@ function onf_render_add_gift_page() {
 						<option value="completed"><?php esc_html_e( 'Received (counts toward totals)', 'onf-core' ); ?></option>
 						<option value="pending"><?php esc_html_e( 'Pledged, not received yet', 'onf-core' ); ?></option>
 					</select></td></tr>
+				<tr><th><?php esc_html_e( 'Emails', 'onf-core' ); ?></th>
+					<td><label><input type="checkbox" name="send_receipt" value="1" checked> <?php esc_html_e( 'Email the donor a receipt (if received and an email is on file)', 'onf-core' ); ?></label><br>
+						<label><input type="checkbox" name="notify_player" value="1" checked> <?php esc_html_e( 'Let the player know (if the gift is for a player)', 'onf-core' ); ?></label>
+						<p class="description"><?php esc_html_e( 'A pledge sends these when you later mark it Completed.', 'onf-core' ); ?></p></td></tr>
 			</table>
 			<?php submit_button( __( 'Add gift', 'onf-core' ) ); ?>
 		</form>
@@ -394,6 +409,19 @@ add_action(
 			wp_safe_redirect( add_query_arg( 'onf_error', rawurlencode( $result->get_error_message() ), $back ) );
 			exit;
 		}
+		$emails = array();
+		if ( ! empty( $input['send_receipt'] ) ) {
+			$emails[] = 'receipt';
+		}
+		if ( ! empty( $input['notify_player'] ) ) {
+			$emails[] = 'player';
+		}
+		if ( $emails ) {
+			onf_send_gift_emails( $result, $emails ); // Only sends for completed gifts.
+			if ( 'pending' === ( $input['status'] ?? '' ) ) {
+				update_option( 'onf_pledge_emails_' . $result, $emails, false );
+			}
+		}
 		wp_safe_redirect( admin_url( 'admin.php?page=onf-gifts&onf_msg=added' ) );
 		exit;
 	}
@@ -407,7 +435,16 @@ add_action(
 			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'onf-core' ) );
 		}
 		check_admin_referer( 'onf_gift_status_' . $gift_id );
-		onf_set_gift_status( $gift_id, sanitize_key( $_GET['status'] ?? '' ) );
+		$before = onf_get_gift( $gift_id );
+		$status = sanitize_key( $_GET['status'] ?? '' );
+		if ( onf_set_gift_status( $gift_id, $status ) && $before && 'pending' === $before->status && 'completed' === $status ) {
+			// A pledge has been received: send the emails chosen when it was entered.
+			$emails = get_option( 'onf_pledge_emails_' . $gift_id, array() );
+			if ( $emails ) {
+				onf_send_gift_emails( $gift_id, (array) $emails );
+			}
+			delete_option( 'onf_pledge_emails_' . $gift_id );
+		}
 		wp_safe_redirect( wp_get_referer() ? add_query_arg( 'onf_msg', 'updated', wp_get_referer() ) : admin_url( 'admin.php?page=onf-gifts&onf_msg=updated' ) );
 		exit;
 	}
@@ -443,4 +480,77 @@ add_action(
 function onf_csv_row( $handle, array $row ) {
 	$row = array_map( static fn( $v ) => is_string( $v ) && preg_match( '/^[=+\-@\t\r]/', $v ) ? "'" . $v : $v, $row );
 	fputcsv( $handle, $row );
+}
+
+add_action(
+	'admin_post_onf_receipt_pdf',
+	static function () {
+		$gift_id = absint( $_GET['gift'] ?? 0 );
+		if ( ! current_user_can( ONF_GIFTS_CAP ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'onf-core' ) );
+		}
+		check_admin_referer( 'onf_receipt_pdf_' . $gift_id );
+		$gift = onf_get_gift( $gift_id );
+		if ( ! $gift ) {
+			wp_die( esc_html__( 'Gift not found.', 'onf-core' ) );
+		}
+		nocache_headers();
+		header( 'Content-Type: application/pdf' );
+		header( 'Content-Disposition: inline; filename=' . sanitize_file_name( 'ONF-Receipt-' . ( $gift->receipt_number ? $gift->receipt_number : $gift->id ) . '.pdf' ) );
+		echo onf_receipt_pdf( $gift ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- binary PDF.
+		exit;
+	}
+);
+
+add_action(
+	'admin_post_onf_resend_receipt',
+	static function () {
+		$gift_id = absint( $_GET['gift'] ?? 0 );
+		if ( ! current_user_can( ONF_GIFTS_CAP ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'onf-core' ) );
+		}
+		check_admin_referer( 'onf_resend_receipt_' . $gift_id );
+		onf_send_gift_emails( $gift_id, array( 'receipt' ) );
+		$back = wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=onf-gifts' );
+		wp_safe_redirect( add_query_arg( 'onf_msg', 'resent', $back ) );
+		exit;
+	}
+);
+
+function onf_render_email_log_page() {
+	global $wpdb;
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view.
+	$view = absint( $_GET['email'] ?? 0 );
+	echo '<div class="wrap"><h1>' . esc_html__( 'Email log', 'onf-core' ) . '</h1>';
+	echo '<p>' . esc_html__( 'Every receipt and notification onf-core sends. On staging, outgoing mail is switched off in WP Mail SMTP, so emails show here but nobody receives them.', 'onf-core' ) . '</p>';
+
+	if ( $view ) {
+		$row = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . onf_email_log_table() . ' WHERE id = %d', $view ) );
+		if ( $row ) {
+			printf( '<p><a href="%s">&larr; %s</a></p>', esc_url( admin_url( 'admin.php?page=onf-email-log' ) ), esc_html__( 'All emails', 'onf-core' ) );
+			printf( '<p><strong>%s</strong> %s<br><strong>%s</strong> %s<br><strong>%s</strong> %s</p>', esc_html__( 'To:', 'onf-core' ), esc_html( $row->recipient ), esc_html__( 'Subject:', 'onf-core' ), esc_html( $row->subject ), esc_html__( 'Sent:', 'onf-core' ), esc_html( $row->created_at . ' · ' . $row->status . ( $row->error ? ' · ' . $row->error : '' ) ) );
+			// Show the email exactly as sent, isolated from the admin page.
+			printf( '<iframe title="%s" sandbox="" srcdoc="%s" width="100%%" height="700"></iframe>', esc_attr__( 'Email preview', 'onf-core' ), esc_attr( $row->body ) );
+		}
+		echo '</div>';
+		return;
+	}
+
+	$rows = $wpdb->get_results( 'SELECT id, gift_id, type, recipient, subject, status, error, created_at FROM ' . onf_email_log_table() . ' ORDER BY id DESC LIMIT 200' );
+	echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'When', 'onf-core' ) . '</th><th>' . esc_html__( 'Type', 'onf-core' ) . '</th><th>' . esc_html__( 'To', 'onf-core' ) . '</th><th>' . esc_html__( 'Subject', 'onf-core' ) . '</th><th>' . esc_html__( 'Status', 'onf-core' ) . '</th></tr></thead><tbody>';
+	if ( ! $rows ) {
+		echo '<tr><td colspan="5">' . esc_html__( 'No emails yet.', 'onf-core' ) . '</td></tr>';
+	}
+	foreach ( $rows as $row ) {
+		printf(
+			'<tr><td>%s</td><td>%s</td><td>%s</td><td><a href="%s">%s</a></td><td>%s</td></tr>',
+			esc_html( $row->created_at ),
+			esc_html( $row->type ),
+			esc_html( $row->recipient ),
+			esc_url( admin_url( 'admin.php?page=onf-email-log&email=' . (int) $row->id ) ),
+			esc_html( $row->subject ),
+			esc_html( $row->status . ( $row->error ? ': ' . $row->error : '' ) )
+		);
+	}
+	echo '</tbody></table></div>';
 }

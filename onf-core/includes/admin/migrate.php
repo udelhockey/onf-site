@@ -6,6 +6,8 @@
  * - Player ↔ category links → entries.
  * - Email, phone, favorite NHL team, sponsor ← latest Event Registration (Ninja Forms form 4)
  *   submission with the same name. Only fills blanks; no match = left blank.
+ * - Email still blank ← the player's address from their GiveWP form's "new donation" notification
+ *   recipients (not the admins), so player notifications keep reaching the same person.
  * - GiveWP form IDs in each player page → `_onf_givewp_form_ids` (used by the GiveWP import later).
  * - Turns off the old ACF "Player" field group (onf-core shows those fields now).
  *
@@ -109,6 +111,7 @@ function onf_migrate( bool $commit ) {
 		),
 		'fields'  => array(),
 		'matched' => 0,
+		'givewp'  => 0,
 		'forms'   => 0,
 		'acf'     => '',
 	);
@@ -221,11 +224,24 @@ function onf_migrate( bool $commit ) {
 			}
 		}
 
-		if ( ! metadata_exists( 'post', $player->ID, '_onf_givewp_form_ids' )
-			&& preg_match_all( '/\[give_form\b[^\]]*\bid=["\']?(\d+)/', $player->post_content, $m ) ) {
+		preg_match_all( '/\[give_form\b[^\]]*\bid=["\']?(\d+)/', $player->post_content, $m );
+		$form_ids = array_values( array_unique( array_map( 'intval', $m[1] ) ) );
+
+		$will_have_email = '' !== (string) get_post_meta( $player->ID, 'email', true ) || ! empty( $reg['email'] );
+		if ( ! $will_have_email && $form_ids ) {
+			$email = onf_migration_givewp_player_email( $form_ids );
+			if ( $email ) {
+				++$report['givewp'];
+				if ( $commit ) {
+					update_post_meta( $player->ID, 'email', $email );
+				}
+			}
+		}
+
+		if ( ! metadata_exists( 'post', $player->ID, '_onf_givewp_form_ids' ) && $form_ids ) {
 			++$report['forms'];
 			if ( $commit ) {
-				update_post_meta( $player->ID, '_onf_givewp_form_ids', array_values( array_unique( array_map( 'intval', $m[1] ) ) ) );
+				update_post_meta( $player->ID, '_onf_givewp_form_ids', $form_ids );
 			}
 		}
 	}
@@ -252,6 +268,30 @@ function onf_migrate( bool $commit ) {
 }
 
 /**
+ * The player's own address from their newest GiveWP form's "new donation" recipients,
+ * skipping ONF's admin addresses.
+ */
+function onf_migration_givewp_player_email( array $form_ids ) {
+	global $wpdb;
+	$table = $wpdb->prefix . 'give_formmeta';
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+		return '';
+	}
+	rsort( $form_ids );
+	$skip = array_map( 'strtolower', array_merge( onf_admin_emails(), array( onf_setting( 'org_email' ), 'stroik@udelhockey.com', get_option( 'admin_email' ) ) ) );
+	foreach ( $form_ids as $form_id ) {
+		$value = $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM $table WHERE form_id = %d AND meta_key = '_give_new-donation_recipient'", $form_id ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		foreach ( (array) maybe_unserialize( $value ) as $recipient ) {
+			$email = strtolower( sanitize_email( is_array( $recipient ) ? ( $recipient['email'] ?? '' ) : (string) $recipient ) );
+			if ( is_email( $email ) && ! in_array( $email, $skip, true ) ) {
+				return $email;
+			}
+		}
+	}
+	return '';
+}
+
+/**
  * Player meta key => Ninja Forms field key prefix on the Event Registration form.
  */
 function onf_migration_registration_fields() {
@@ -274,6 +314,9 @@ function onf_migration_name_key( string $name ) {
  */
 function onf_migration_registrations() {
 	global $wpdb;
+	if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->prefix . 'nf3_fields' ) ) !== $wpdb->prefix . 'nf3_fields' ) {
+		return array(); // Ninja Forms not installed.
+	}
 	$fields = $wpdb->get_results(
 		$wpdb->prepare( "SELECT id, `key` FROM {$wpdb->prefix}nf3_fields WHERE parent_id = %d", ONF_MIGRATION_REG_FORM )
 	);
@@ -367,6 +410,8 @@ function onf_render_migration_report( array $report, bool $committed ) {
 	echo '</ul>';
 
 	echo '<h3>' . esc_html__( 'Other', 'onf-core' ) . '</h3><ul>';
+	/* translators: %d: count */
+	printf( '<li>%s</li>', esc_html( sprintf( __( 'Email filled from GiveWP donation-notification settings for %d more players', 'onf-core' ), $report['givewp'] ) ) );
 	/* translators: %d: count */
 	printf( '<li>%s</li>', esc_html( sprintf( __( 'GiveWP form IDs recorded on %d players', 'onf-core' ), $report['forms'] ) ) );
 	/* translators: %s: action */

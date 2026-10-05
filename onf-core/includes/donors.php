@@ -133,15 +133,19 @@ function onf_fill_donor_blanks( $donor, array $data ) {
  * Find or create the donor for a gift being recorded, and complete the gift's donor copy.
  * 1. A chosen donor_id wins. 2. Else match by email. 3. Else, if the gift has a name, a new donor (no email).
  *
- * @param array $row Gift row (by reference: blank donor fields are filled from the donor).
+ * @param array $row   Gift row (by reference: blank donor fields are filled from the donor).
+ * @param array $extra More donor details to save if blank (phone, address1, city, …).
  * @return int Donor ID, or 0 for a gift with no donor details.
  */
-function onf_resolve_gift_donor( int $donor_id, array &$row ) {
-	$details = array(
-		'first_name' => $row['donor_first_name'],
-		'last_name'  => $row['donor_last_name'],
-		'email'      => $row['donor_email'],
-		'company'    => $row['donor_company'],
+function onf_resolve_gift_donor( int $donor_id, array &$row, array $extra = array() ) {
+	$details = array_merge(
+		array_intersect_key( $extra, onf_donor_fields() ),
+		array(
+			'first_name' => $row['donor_first_name'],
+			'last_name'  => $row['donor_last_name'],
+			'email'      => $row['donor_email'],
+			'company'    => $row['donor_company'],
+		)
 	);
 
 	$donor = $donor_id ? onf_get_donor( $donor_id ) : null;
