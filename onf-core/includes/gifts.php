@@ -11,11 +11,6 @@ function onf_gifts_table() {
 	return $wpdb->prefix . 'onf_gifts';
 }
 
-function onf_donors_table() {
-	global $wpdb;
-	return $wpdb->prefix . 'onf_donors';
-}
-
 function onf_gift_sources() {
 	return array(
 		'stripe'        => __( 'Stripe', 'onf-core' ),
@@ -42,9 +37,9 @@ function onf_gift_methods() {
 }
 
 /**
- * Record a gift. Creates or updates the donor when an email is given.
+ * Record a gift and link it to a donor (see onf_resolve_gift_donor()).
  *
- * @param array $data Column => value. `amount` is required.
+ * @param array $data Column => value. `amount` is required; `donor_id` links an existing donor.
  * @return int|WP_Error New gift ID.
  */
 function onf_insert_gift( array $data ) {
@@ -83,16 +78,7 @@ function onf_insert_gift( array $data ) {
 		'updated_at'            => $now,
 	);
 
-	if ( $row['donor_email'] ) {
-		$row['donor_id'] = onf_upsert_donor(
-			array(
-				'email'      => $row['donor_email'],
-				'first_name' => $row['donor_first_name'],
-				'last_name'  => $row['donor_last_name'],
-				'company'    => $row['donor_company'],
-			)
-		);
-	}
+	$row['donor_id'] = onf_resolve_gift_donor( absint( $data['donor_id'] ?? 0 ), $row );
 
 	if ( ! $wpdb->insert( onf_gifts_table(), $row ) ) {
 		return new WP_Error( 'onf_gift_db', __( 'The gift could not be saved.', 'onf-core' ) );
@@ -127,44 +113,6 @@ function onf_set_gift_status( int $gift_id, string $status ) {
 function onf_get_gift( int $gift_id ) {
 	global $wpdb;
 	return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . onf_gifts_table() . ' WHERE id = %d', $gift_id ) );
-}
-
-/**
- * Find a donor by email, filling in any blank details; create them if new.
- *
- * @return int Donor ID (0 if no valid email).
- */
-function onf_upsert_donor( array $data ) {
-	global $wpdb;
-	$email = strtolower( sanitize_email( $data['email'] ?? '' ) );
-	if ( ! $email ) {
-		return 0;
-	}
-	$fields = array( 'first_name', 'last_name', 'company', 'address1', 'address2', 'city', 'state', 'zip' );
-	$donor  = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . onf_donors_table() . ' WHERE email = %s', $email ) );
-
-	if ( ! $donor ) {
-		$row = array(
-			'email'      => $email,
-			'created_at' => current_time( 'mysql' ),
-		);
-		foreach ( $fields as $field ) {
-			$row[ $field ] = sanitize_text_field( $data[ $field ] ?? '' );
-		}
-		$wpdb->insert( onf_donors_table(), $row );
-		return (int) $wpdb->insert_id;
-	}
-
-	$update = array();
-	foreach ( $fields as $field ) {
-		if ( '' === $donor->$field && ! empty( $data[ $field ] ) ) {
-			$update[ $field ] = sanitize_text_field( $data[ $field ] );
-		}
-	}
-	if ( $update ) {
-		$wpdb->update( onf_donors_table(), $update, array( 'id' => $donor->id ) );
-	}
-	return (int) $donor->id;
 }
 
 /**

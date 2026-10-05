@@ -25,6 +25,7 @@ function onf_gift_filters_from_request() {
 		'event_id'  => absint( $_GET['event_id'] ?? 0 ),
 		'player_id' => absint( $_GET['player_id'] ?? 0 ),
 		'fund_id'   => absint( $_GET['fund_id'] ?? 0 ),
+		'donor_id'  => absint( $_GET['donor_id'] ?? 0 ),
 		'source'    => sanitize_key( $_GET['source'] ?? '' ),
 		'status'    => sanitize_key( $_GET['status'] ?? '' ),
 		's'         => sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) ),
@@ -39,18 +40,18 @@ function onf_gift_filters_from_request() {
 function onf_gift_where( array $filters ) {
 	global $wpdb;
 	$where = array( '1=1' );
-	foreach ( array( 'event_id', 'player_id', 'fund_id' ) as $column ) {
-		if ( $filters[ $column ] ) {
+	foreach ( array( 'event_id', 'player_id', 'fund_id', 'donor_id' ) as $column ) {
+		if ( ! empty( $filters[ $column ] ) ) {
 			$where[] = $wpdb->prepare( "g.$column = %d", $filters[ $column ] );
 		}
 	}
-	if ( array_key_exists( $filters['source'], onf_gift_sources() ) ) {
+	if ( array_key_exists( $filters['source'] ?? '', onf_gift_sources() ) ) {
 		$where[] = $wpdb->prepare( 'g.source = %s', $filters['source'] );
 	}
-	if ( array_key_exists( $filters['status'], onf_gift_statuses() ) ) {
+	if ( array_key_exists( $filters['status'] ?? '', onf_gift_statuses() ) ) {
 		$where[] = $wpdb->prepare( 'g.status = %s', $filters['status'] );
 	}
-	if ( '' !== $filters['s'] ) {
+	if ( '' !== ( $filters['s'] ?? '' ) ) {
 		$like    = '%' . $wpdb->esc_like( $filters['s'] ) . '%';
 		$where[] = $wpdb->prepare(
 			"(CONCAT(g.donor_first_name, ' ', g.donor_last_name) LIKE %s OR g.donor_email LIKE %s OR g.donor_company LIKE %s OR g.reference LIKE %s)",
@@ -148,6 +149,9 @@ class ONF_Gifts_List_Table extends WP_List_Table {
 	protected function column_donor( $item ) {
 		$name = trim( $item->donor_first_name . ' ' . $item->donor_last_name );
 		$out  = esc_html( '' !== $name ? $name : '—' );
+		if ( $item->donor_id ) {
+			$out = sprintf( '<a href="%s">%s</a>', esc_url( onf_donor_url( $item->donor_id ) ), $out );
+		}
 		if ( $item->donor_company ) {
 			$out .= '<br>' . esc_html( $item->donor_company );
 		}
@@ -219,8 +223,18 @@ function onf_render_gifts_page() {
 		<a href="<?php echo esc_url( $export ); ?>" class="page-title-action"><?php esc_html_e( 'Export CSV', 'onf-core' ); ?></a>
 		<hr class="wp-header-end">
 		<?php onf_render_gift_notice(); ?>
+		<?php if ( $filters['donor_id'] && ( $donor = onf_get_donor( $filters['donor_id'] ) ) ) : ?>
+			<p>
+				<?php /* translators: %s: donor name */ ?>
+				<?php echo esc_html( sprintf( __( 'Showing gifts from %s.', 'onf-core' ), onf_donor_name( $donor ) ) ); ?>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=onf-gifts' ) ); ?>"><?php esc_html_e( 'Show all', 'onf-core' ); ?></a>
+			</p>
+		<?php endif; ?>
 		<form method="get">
 			<input type="hidden" name="page" value="onf-gifts">
+			<?php if ( $filters['donor_id'] ) : ?>
+				<input type="hidden" name="donor_id" value="<?php echo (int) $filters['donor_id']; ?>">
+			<?php endif; ?>
 			<div class="tablenav top">
 				<div class="alignleft actions">
 					<?php
@@ -255,8 +269,11 @@ function onf_render_gifts_page() {
 function onf_render_gift_notice() {
 	// phpcs:disable WordPress.Security.NonceVerification.Recommended -- display only.
 	$messages = array(
-		'added'   => __( 'Gift added.', 'onf-core' ),
-		'updated' => __( 'Gift status updated.', 'onf-core' ),
+		'added'         => __( 'Gift added.', 'onf-core' ),
+		'updated'       => __( 'Gift status updated.', 'onf-core' ),
+		'donor_saved'   => __( 'Donor saved.', 'onf-core' ),
+		'donor_merged'  => __( 'Donors merged.', 'onf-core' ),
+		'donor_deleted' => __( 'Donor deleted.', 'onf-core' ),
 	);
 	$key      = sanitize_key( $_GET['onf_msg'] ?? '' );
 	$error    = sanitize_text_field( wp_unslash( $_GET['onf_error'] ?? '' ) );
@@ -298,12 +315,19 @@ function onf_render_add_gift_page() {
 						<?php onf_post_select( 'fund_id', 'onf_fund', 0, __( '— No fund —', 'onf-core' ) ); ?>
 						<p class="description"><?php esc_html_e( 'A gift for a player needs the event too.', 'onf-core' ); ?></p>
 					</td></tr>
-				<tr><th><label for="onf-first"><?php esc_html_e( 'Donor', 'onf-core' ); ?></label></th>
+				<tr><th><?php esc_html_e( 'Donor', 'onf-core' ); ?></th>
 					<td>
-						<input type="text" id="onf-first" name="donor_first_name" placeholder="<?php esc_attr_e( 'First name', 'onf-core' ); ?>">
-						<input type="text" name="donor_last_name" placeholder="<?php esc_attr_e( 'Last name', 'onf-core' ); ?>" aria-label="<?php esc_attr_e( 'Last name', 'onf-core' ); ?>">
-						<input type="email" name="donor_email" placeholder="<?php esc_attr_e( 'Email (optional)', 'onf-core' ); ?>" aria-label="<?php esc_attr_e( 'Email', 'onf-core' ); ?>">
-						<input type="text" name="donor_company" placeholder="<?php esc_attr_e( 'Company (optional)', 'onf-core' ); ?>" aria-label="<?php esc_attr_e( 'Company', 'onf-core' ); ?>">
+						<?php
+						// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- prefill only.
+						onf_donor_picker( 'donor_pick', __( 'Existing donor: start typing a name or email', 'onf-core' ), 0, absint( $_GET['donor_id'] ?? 0 ) );
+						?>
+						<p class="description"><?php esc_html_e( 'Or, for a new donor, fill in below (email optional). Leave everything blank for an unnamed gift.', 'onf-core' ); ?></p>
+						<p>
+							<input type="text" id="onf-first" name="donor_first_name" placeholder="<?php esc_attr_e( 'First name', 'onf-core' ); ?>" aria-label="<?php esc_attr_e( 'First name', 'onf-core' ); ?>">
+							<input type="text" name="donor_last_name" placeholder="<?php esc_attr_e( 'Last name', 'onf-core' ); ?>" aria-label="<?php esc_attr_e( 'Last name', 'onf-core' ); ?>">
+							<input type="email" name="donor_email" placeholder="<?php esc_attr_e( 'Email', 'onf-core' ); ?>" aria-label="<?php esc_attr_e( 'Email', 'onf-core' ); ?>">
+							<input type="text" name="donor_company" placeholder="<?php esc_attr_e( 'Company', 'onf-core' ); ?>" aria-label="<?php esc_attr_e( 'Company', 'onf-core' ); ?>">
+						</p>
 					</td></tr>
 				<tr><th><label for="onf-display"><?php esc_html_e( 'Name on donor board', 'onf-core' ); ?></label></th>
 					<td><input type="text" id="onf-display" name="display_name" class="regular-text" placeholder="<?php esc_attr_e( 'Defaults to donor name', 'onf-core' ); ?>">
@@ -337,6 +361,12 @@ add_action(
 			exit;
 		}
 
+		$donor_id = onf_donor_id_from_pick( $input['donor_pick'] ?? '' );
+		if ( '' !== trim( (string) ( $input['donor_pick'] ?? '' ) ) && ! onf_get_donor( $donor_id ) ) {
+			wp_safe_redirect( add_query_arg( 'onf_error', rawurlencode( __( 'Pick the donor from the list, or clear that box and enter a new donor.', 'onf-core' ) ), $back ) );
+			exit;
+		}
+
 		$date   = sanitize_text_field( $input['gift_date'] ?? '' );
 		$result = onf_insert_gift(
 			array(
@@ -347,6 +377,7 @@ add_action(
 				'player_id'        => $input['player_id'] ?? 0,
 				'event_id'         => $input['event_id'] ?? 0,
 				'fund_id'          => $input['fund_id'] ?? 0,
+				'donor_id'         => $donor_id,
 				'donor_first_name' => $input['donor_first_name'] ?? '',
 				'donor_last_name'  => $input['donor_last_name'] ?? '',
 				'donor_email'      => $input['donor_email'] ?? '',
@@ -396,14 +427,20 @@ add_action(
 		header( 'Content-Disposition: attachment; filename=onf-gifts-' . gmdate( 'Y-m-d' ) . '.csv' );
 
 		$out = fopen( 'php://output', 'w' );
-		fputcsv( $out, array( 'ID', 'Date', 'Amount', 'Fee covered', 'Type', 'Status', 'Source', 'Method', 'Reference', 'First name', 'Last name', 'Email', 'Company', 'Display name', 'Anonymous', 'Message', 'Player', 'Event', 'Fund', 'Receipt #', 'Stripe payment', 'GiveWP ID' ) );
+		fputcsv( $out, array( 'ID', 'Donor ID', 'Date', 'Amount', 'Fee covered', 'Type', 'Status', 'Source', 'Method', 'Reference', 'First name', 'Last name', 'Email', 'Company', 'Display name', 'Anonymous', 'Message', 'Player', 'Event', 'Fund', 'Receipt #', 'Stripe payment', 'GiveWP ID' ) );
 		foreach ( $gifts as $g ) {
-			$row = array( $g->id, $g->gift_date, $g->amount, $g->fee_covered, $g->type, $g->status, $g->source, $g->method, $g->reference, $g->donor_first_name, $g->donor_last_name, $g->donor_email, $g->donor_company, $g->display_name, $g->anonymous ? 'yes' : 'no', $g->message, $g->player_name, $g->event_name, $g->fund_name, $g->receipt_number, $g->stripe_payment_intent, $g->givewp_id ?: '' );
-			// Stop spreadsheet apps from running donor-entered text as a formula.
-			$row = array_map( static fn( $v ) => is_string( $v ) && preg_match( '/^[=+\-@\t\r]/', $v ) ? "'" . $v : $v, $row );
-			fputcsv( $out, $row );
+			$row = array( $g->id, $g->donor_id ?: '', $g->gift_date, $g->amount, $g->fee_covered, $g->type, $g->status, $g->source, $g->method, $g->reference, $g->donor_first_name, $g->donor_last_name, $g->donor_email, $g->donor_company, $g->display_name, $g->anonymous ? 'yes' : 'no', $g->message, $g->player_name, $g->event_name, $g->fund_name, $g->receipt_number, $g->stripe_payment_intent, $g->givewp_id ?: '' );
+			onf_csv_row( $out, $row );
 		}
 		fclose( $out );
 		exit;
 	}
 );
+
+/**
+ * Write a CSV row, stopping spreadsheet apps from running donor-entered text as a formula.
+ */
+function onf_csv_row( $handle, array $row ) {
+	$row = array_map( static fn( $v ) => is_string( $v ) && preg_match( '/^[=+\-@\t\r]/', $v ) ? "'" . $v : $v, $row );
+	fputcsv( $handle, $row );
+}

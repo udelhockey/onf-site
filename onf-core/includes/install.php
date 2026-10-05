@@ -1,12 +1,13 @@
 <?php
 /**
  * Database tables: entries (player in an event), gifts, donors.
+ * Donor email is optional (check/cash givers); when present it is unique.
  * Created on activation; upgraded when ONF_CORE_DB_VERSION changes.
  */
 
 defined( 'ABSPATH' ) || exit;
 
-const ONF_CORE_DB_VERSION = '1';
+const ONF_CORE_DB_VERSION = '2';
 
 function onf_core_activate() {
 	onf_core_install_tables();
@@ -88,18 +89,22 @@ function onf_core_install_tables() {
 	dbDelta(
 		"CREATE TABLE {$wpdb->prefix}onf_donors (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-			email varchar(191) NOT NULL,
+			email varchar(191) NULL DEFAULT NULL,
 			first_name varchar(100) NOT NULL DEFAULT '',
 			last_name varchar(100) NOT NULL DEFAULT '',
 			company varchar(191) NOT NULL DEFAULT '',
+			phone varchar(50) NOT NULL DEFAULT '',
 			address1 varchar(191) NOT NULL DEFAULT '',
 			address2 varchar(191) NOT NULL DEFAULT '',
 			city varchar(100) NOT NULL DEFAULT '',
 			state varchar(50) NOT NULL DEFAULT '',
 			zip varchar(20) NOT NULL DEFAULT '',
+			notes text NULL,
 			created_at datetime NOT NULL,
+			updated_at datetime NOT NULL,
 			PRIMARY KEY  (id),
-			UNIQUE KEY email (email)
+			UNIQUE KEY email (email),
+			KEY last_name (last_name)
 		) $charset;"
 	);
 
