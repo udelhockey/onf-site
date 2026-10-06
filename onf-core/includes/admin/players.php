@@ -228,3 +228,87 @@ add_action(
 		}
 	}
 );
+
+// Players → Merge players.
+add_action(
+	'admin_menu',
+	static function () {
+		add_submenu_page( 'edit.php?post_type=player', __( 'Merge players', 'onf-core' ), __( 'Merge players', 'onf-core' ), 'manage_options', 'onf-merge-players', 'onf_render_merge_players_page' );
+	}
+);
+
+function onf_player_options( int $selected ) {
+	$players = get_posts(
+		array(
+			'post_type'      => 'player',
+			'post_status'    => array( 'publish', 'draft', 'private' ),
+			'posts_per_page' => -1,
+			'orderby'        => 'title',
+			'order'          => 'ASC',
+		)
+	);
+	echo '<option value="0">—</option>';
+	foreach ( $players as $p ) {
+		$label = sprintf( '%s (#%d%s)', $p->post_title, $p->ID, 'publish' === $p->post_status ? '' : ', ' . $p->post_status );
+		printf( '<option value="%d" %s>%s</option>', (int) $p->ID, selected( $selected, $p->ID, false ), esc_html( $label ) );
+	}
+}
+
+function onf_player_summary( int $player_id ) {
+	$events = wp_list_pluck( onf_get_player_entries( $player_id ), 'event_title' );
+	global $wpdb;
+	$gifts = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM ' . onf_gifts_table() . ' WHERE player_id = %d', $player_id ) );
+	return sprintf(
+		/* translators: 1: name, 2: gifts, 3: total, 4: events */
+		__( '%1$s — %2$d gifts, %3$s all-time; events: %4$s', 'onf-core' ),
+		get_the_title( $player_id ),
+		$gifts,
+		onf_money( onf_player_total( $player_id ) ),
+		$events ? implode( ', ', $events ) : __( 'none', 'onf-core' )
+	);
+}
+
+function onf_render_merge_players_page() {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	// phpcs:disable WordPress.Security.NonceVerification -- the merge itself checks its nonce.
+	$from = absint( $_REQUEST['from'] ?? 0 );
+	$into = absint( $_REQUEST['into'] ?? 0 );
+	$go   = isset( $_POST['onf_merge_confirm'] );
+	// phpcs:enable
+	echo '<div class="wrap"><h1>' . esc_html__( 'Merge players', 'onf-core' ) . '</h1>';
+	echo '<p>' . esc_html__( 'For one person with two player pages. Everything moves to the player that stays: gifts, events, GiveWP form links and any blank profile fields. The other page goes to the Trash and its old web address redirects to the one that stays.', 'onf-core' ) . '</p>';
+
+	if ( $go && check_admin_referer( 'onf_merge_players' ) ) {
+		$result = onf_merge_players( $from, $into );
+		if ( is_wp_error( $result ) ) {
+			echo '<div class="notice notice-error"><p>' . esc_html( $result->get_error_message() ) . '</p></div>';
+		} else {
+			echo '<div class="notice notice-success"><p>' . esc_html( onf_player_summary( $into ) ) . '</p></div>';
+			printf( '<p><a href="%s">%s</a></p></div>', esc_url( get_edit_post_link( $into ) ), esc_html__( 'Open the merged player', 'onf-core' ) );
+			return;
+		}
+	}
+	?>
+	<form method="post">
+		<?php wp_nonce_field( 'onf_merge_players' ); ?>
+		<table class="form-table" role="presentation">
+			<tr><th><label for="onf-merge-from"><?php esc_html_e( 'Merge this player…', 'onf-core' ); ?></label></th>
+				<td><select id="onf-merge-from" name="from"><?php onf_player_options( $from ); ?></select>
+				<?php if ( $from ) : ?><p class="description"><?php echo esc_html( onf_player_summary( $from ) ); ?></p><?php endif; ?></td></tr>
+			<tr><th><label for="onf-merge-into"><?php esc_html_e( '…into this player (stays)', 'onf-core' ); ?></label></th>
+				<td><select id="onf-merge-into" name="into"><?php onf_player_options( $into ); ?></select>
+				<?php if ( $into ) : ?><p class="description"><?php echo esc_html( onf_player_summary( $into ) ); ?></p><?php endif; ?></td></tr>
+		</table>
+		<?php
+		submit_button( __( 'Preview', 'onf-core' ), 'secondary', 'onf_merge_preview', false );
+		if ( $from && $into && $from !== $into ) {
+			echo ' ';
+			submit_button( __( 'Merge now', 'onf-core' ), 'primary', 'onf_merge_confirm', false, array( 'onclick' => "return confirm('" . esc_js( __( 'Merge these players? The first one goes to the Trash.', 'onf-core' ) ) . "');" ) );
+		}
+		?>
+	</form>
+	<?php
+	echo '</div>';
+}

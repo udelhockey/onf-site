@@ -132,3 +132,70 @@ add_action(
 		}
 	}
 );
+
+/**
+ * Merge one player page into another (the same person twice): gifts, event entries, GiveWP form links
+ * and any blank profile fields move to the player that stays. The other page goes to the Trash and its
+ * old address redirects to the one that stays.
+ *
+ * @return true|WP_Error
+ */
+function onf_merge_players( int $from_id, int $into_id ) {
+	global $wpdb;
+	if ( $from_id === $into_id || 'player' !== get_post_type( $from_id ) || 'player' !== get_post_type( $into_id ) ) {
+		return new WP_Error( 'onf_merge', __( 'Choose two different players.', 'onf-core' ) );
+	}
+
+	// Gifts.
+	$wpdb->update( onf_gifts_table(), array( 'player_id' => $into_id ), array( 'player_id' => $from_id ) );
+
+	// Event entries: move, or combine when both were in the same event.
+	foreach ( onf_get_player_entries( $from_id ) as $entry ) {
+		$theirs = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . onf_entries_table() . ' WHERE player_id = %d AND event_id = %d', $into_id, $entry->event_id ) );
+		if ( $theirs ) {
+			$fill = array();
+			if ( null === $theirs->goal && null !== $entry->goal ) {
+				$fill['goal'] = $entry->goal;
+			}
+			if ( '' === $theirs->sponsor && '' !== $entry->sponsor ) {
+				$fill['sponsor'] = $entry->sponsor;
+			}
+			if ( $fill ) {
+				$wpdb->update( onf_entries_table(), $fill, array( 'id' => $theirs->id ) );
+			}
+			$wpdb->delete( onf_entries_table(), array( 'id' => $entry->id ) );
+		} else {
+			$wpdb->update( onf_entries_table(), array( 'player_id' => $into_id ), array( 'id' => $entry->id ) );
+		}
+	}
+
+	// Profile fields: fill blanks only.
+	foreach ( onf_field_groups()['player'] as $group ) {
+		foreach ( array_keys( $group['fields'] ) as $key ) {
+			$mine   = (string) get_post_meta( $into_id, $key, true );
+			$theirs = (string) get_post_meta( $from_id, $key, true );
+			if ( '' === $mine && '' !== $theirs ) {
+				update_post_meta( $into_id, $key, $theirs );
+			}
+		}
+	}
+	if ( ! has_post_thumbnail( $into_id ) && has_post_thumbnail( $from_id ) ) {
+		set_post_thumbnail( $into_id, get_post_thumbnail_id( $from_id ) );
+	}
+
+	// GiveWP form links (so a later import maps those forms here too).
+	$forms = array_unique( array_merge( (array) get_post_meta( $into_id, '_onf_givewp_form_ids', true ), (array) get_post_meta( $from_id, '_onf_givewp_form_ids', true ) ) );
+	update_post_meta( $into_id, '_onf_givewp_form_ids', array_values( array_filter( array_map( 'intval', $forms ) ) ) );
+
+	// Old address → redirect (WordPress follows _wp_old_slug automatically).
+	$slug = get_post_field( 'post_name', $from_id );
+	if ( $slug ) {
+		add_post_meta( $into_id, '_wp_old_slug', $slug );
+	}
+	update_post_meta( $from_id, '_onf_merged_into', $into_id );
+	wp_trash_post( $from_id );
+
+	onf_flush_totals();
+	do_action( 'onf_players_merged', $from_id, $into_id );
+	return true;
+}
