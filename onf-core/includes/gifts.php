@@ -29,10 +29,11 @@ function onf_gift_statuses() {
 
 function onf_gift_methods() {
 	return array(
-		'card'  => __( 'Card', 'onf-core' ),
-		'check' => __( 'Check', 'onf-core' ),
-		'cash'  => __( 'Cash', 'onf-core' ),
-		'other' => __( 'Other', 'onf-core' ),
+		'card'   => __( 'Card', 'onf-core' ),
+		'check'  => __( 'Check', 'onf-core' ),
+		'cash'   => __( 'Cash', 'onf-core' ),
+		'paypal' => __( 'PayPal', 'onf-core' ),
+		'other'  => __( 'Other', 'onf-core' ),
 	);
 }
 
@@ -117,7 +118,7 @@ function onf_set_gift_status( int $gift_id, string $status ) {
 }
 
 /**
- * Give a completed gift the next receipt number (prefix + sequence), once.
+ * Give a completed gift the next receipt number for its year, once: 26-0001, 26-0002, … 27-0001.
  * GiveWP-imported gifts keep their own numbers.
  */
 function onf_assign_receipt_number( int $gift_id ) {
@@ -126,13 +127,15 @@ function onf_assign_receipt_number( int $gift_id ) {
 	if ( ! $gift || '' !== $gift->receipt_number || 'givewp_import' === $gift->source ) {
 		return;
 	}
-	add_option( 'onf_receipt_next', 26704, '', false );
+	$year   = substr( $gift->gift_date, 0, 4 );
+	$option = 'onf_receipt_next_' . $year;
+	add_option( $option, 1, '', false ); // Not autoloaded: always read fresh.
 	// Atomic increment, so two gifts at the same moment never share a number.
-	$wpdb->query( "UPDATE {$wpdb->options} SET option_value = LAST_INSERT_ID(option_value + 1) WHERE option_name = 'onf_receipt_next'" );
+	$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->options} SET option_value = LAST_INSERT_ID(option_value + 1) WHERE option_name = %s", $option ) );
 	$number = (int) $wpdb->get_var( 'SELECT LAST_INSERT_ID()' ) - 1;
-	wp_cache_delete( 'onf_receipt_next', 'options' );
+	wp_cache_delete( $option, 'options' );
 
-	$receipt = onf_setting( 'receipt_prefix' ) . str_pad( (string) $number, (int) onf_setting( 'receipt_padding' ), '0', STR_PAD_LEFT );
+	$receipt = substr( $year, 2 ) . '-' . str_pad( (string) $number, 4, '0', STR_PAD_LEFT );
 	$wpdb->update( onf_gifts_table(), array( 'receipt_number' => $receipt ), array( 'id' => $gift_id ) );
 }
 

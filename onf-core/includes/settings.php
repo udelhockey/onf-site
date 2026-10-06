@@ -29,10 +29,6 @@ function onf_settings_defaults() {
 		'org_address'                => "PO Box 5355\nWilmington, DE 19808",
 		'org_email'                  => 'bob@opennetfoundation.org',
 
-		// Receipt numbers continue GiveWP's sequence: 25-26704, 25-26705, …
-		'receipt_prefix'             => '25-',
-		'receipt_padding'            => 3,
-
 		// Emails.
 		'from_name'                  => 'Open Net Foundation',
 		'from_email'                 => 'bob@opennetfoundation.org',

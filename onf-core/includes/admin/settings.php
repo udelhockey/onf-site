@@ -93,11 +93,18 @@ function onf_render_settings_page() {
 				<?php endforeach; ?>
 				<tr><th><label for="onf-org_address"><?php esc_html_e( 'Mailing address', 'onf-core' ); ?></label></th>
 					<td><textarea id="onf-org_address" name="org_address" rows="2" class="regular-text"><?php echo esc_textarea( $s['org_address'] ); ?></textarea></td></tr>
-				<tr><th><label for="onf-receipt_prefix"><?php esc_html_e( 'Receipt numbers', 'onf-core' ); ?></label></th>
-					<td><input type="text" id="onf-receipt_prefix" name="receipt_prefix" value="<?php echo esc_attr( $s['receipt_prefix'] ); ?>" class="small-text" aria-label="<?php esc_attr_e( 'Prefix', 'onf-core' ); ?>">
-						<?php esc_html_e( 'next number', 'onf-core' ); ?>
-						<input type="number" name="receipt_next" value="<?php echo esc_attr( get_option( 'onf_receipt_next', 26704 ) ); ?>" min="1" step="1" class="small-text" aria-label="<?php esc_attr_e( 'Next number', 'onf-core' ); ?>">
-						<p class="description"><?php esc_html_e( 'Continues GiveWP\'s sequence. At cutover, set the next number from live GiveWP.', 'onf-core' ); ?></p></td></tr>
+				<tr><th><label for="onf-receipt_next"><?php esc_html_e( 'Receipt numbers', 'onf-core' ); ?></label></th>
+					<td>
+						<?php
+						$year = current_time( 'Y' );
+						$next = (int) get_option( 'onf_receipt_next_' . $year, 1 );
+						/* translators: 1: example receipt number, 2: year */
+						echo esc_html( sprintf( __( 'Numbered by year and restart each January (e.g. %1$s). Next number for %2$s:', 'onf-core' ), substr( $year, 2 ) . '-0001', $year ) );
+						?>
+						<input type="number" id="onf-receipt_next" name="receipt_next" value="<?php echo esc_attr( $next ); ?>" min="1" step="1" class="small-text">
+						<?php /* translators: %s: receipt number */ ?>
+						<span class="description"><?php echo esc_html( sprintf( __( '→ %s', 'onf-core' ), substr( $year, 2 ) . '-' . str_pad( (string) $next, 4, '0', STR_PAD_LEFT ) ) ); ?></span>
+					</td></tr>
 			</table>
 
 			<h2><?php esc_html_e( 'Emails', 'onf-core' ); ?></h2>
@@ -201,7 +208,7 @@ add_action(
 		$new['fee_percent'] = min( 10, max( 0, (float) ( $in['fee_percent'] ?? 0 ) ) );
 		$new['fee_fixed']   = max( 0, round( (float) ( $in['fee_fixed'] ?? 0 ), 2 ) );
 
-		foreach ( array( 'org_name', 'org_tagline', 'org_ein', 'receipt_prefix', 'from_name', 'receipt_subject', 'player_subject', 'admin_subject' ) as $key ) {
+		foreach ( array( 'org_name', 'org_tagline', 'org_ein', 'from_name', 'receipt_subject', 'player_subject', 'admin_subject' ) as $key ) {
 			$new[ $key ] = sanitize_text_field( $in[ $key ] ?? '' );
 		}
 		foreach ( array( 'org_email', 'from_email' ) as $key ) {
@@ -212,12 +219,11 @@ add_action(
 		}
 		$new['notify_admins']   = empty( $in['notify_admins'] ) ? 0 : 1;
 		$new['notify_players']  = empty( $in['notify_players'] ) ? 0 : 1;
-		$new['receipt_padding'] = $old['receipt_padding'];
 
 		update_option( 'onf_settings', $new );
 		$next = absint( $in['receipt_next'] ?? 0 );
 		if ( $next ) {
-			update_option( 'onf_receipt_next', $next, false );
+			update_option( 'onf_receipt_next_' . current_time( 'Y' ), $next, false );
 		}
 
 		$url = add_query_arg( 'onf_msg', 'saved', admin_url( 'admin.php?page=onf-settings' ) );

@@ -134,8 +134,5 @@ function onf_core_install_tables() {
 		) $charset;"
 	);
 
-	// Receipt numbers continue GiveWP's sequence. Not autoloaded: it's read fresh from the database.
-	add_option( 'onf_receipt_next', 26704, '', false );
-
 	update_option( 'onf_core_db_version', ONF_CORE_DB_VERSION );
 }
