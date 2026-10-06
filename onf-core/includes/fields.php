@@ -61,6 +61,7 @@ function onf_field_groups() {
 				'fields'  => array(
 					'goal'   => array( __( 'Goal ($)', 'onf-core' ), 'number' ),
 					'active' => array( __( 'Accepting gifts', 'onf-core' ), 'checkbox' ),
+					'series' => array( __( 'Event series (gifts count toward that year\'s event)', 'onf-core' ), 'select', onf_series_options() ),
 				),
 			),
 		),

@@ -42,6 +42,10 @@ function onf_donation_target( $player_id, $event_id, $fund_id ) {
 	if ( $player_id && ! $event_id ) {
 		$event_id = onf_player_current_event( $player_id );
 	}
+	// A fund in a series (Dolan Fund → holiday giving) counts toward that series' open event.
+	if ( $fund_id && ! $event_id ) {
+		$event_id = onf_series_current_event( (int) get_post_meta( $fund_id, 'series', true ) );
+	}
 	if ( $fund_id && ! get_post_meta( $fund_id, 'active', true ) ) {
 		return new WP_Error( 'fund_closed', __( 'This fund is not accepting gifts right now.', 'onf-core' ) );
 	}
