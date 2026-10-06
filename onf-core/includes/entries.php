@@ -41,6 +41,10 @@ function onf_add_entry( int $player_id, int $event_id, array $args = array() ) {
 		)
 	);
 	if ( $created ) {
+		// A returning player is active again (not for history added by the GiveWP import).
+		if ( 'import' !== ( $args['status'] ?? '' ) && 'closed' !== get_post_meta( $event_id, 'status', true ) && onf_is_archived( $player_id ) ) {
+			onf_set_archived( $player_id, false );
+		}
 		onf_flush_totals();
 		do_action( 'onf_entry_added', $player_id, $event_id );
 	}

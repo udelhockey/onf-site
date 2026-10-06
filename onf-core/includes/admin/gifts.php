@@ -240,8 +240,20 @@ function onf_post_select( string $name, string $post_type, int $selected, string
 	);
 	printf( '<select name="%s" id="onf-%s">', esc_attr( $name ), esc_attr( $name ) );
 	printf( '<option value="0">%s</option>', esc_html( $placeholder ) );
+	$archived = array();
 	foreach ( $posts as $post ) {
+		if ( 'player' === $post_type && onf_is_archived( $post->ID ) ) {
+			$archived[] = $post; // Listed last, under "Archived players".
+			continue;
+		}
 		printf( '<option value="%d" %s>%s</option>', (int) $post->ID, selected( $selected, $post->ID, false ), esc_html( $post->post_title ) );
+	}
+	if ( $archived ) {
+		printf( '<optgroup label="%s">', esc_attr__( 'Archived players', 'onf-core' ) );
+		foreach ( $archived as $post ) {
+			printf( '<option value="%d" %s>%s</option>', (int) $post->ID, selected( $selected, $post->ID, false ), esc_html( $post->post_title ) );
+		}
+		echo '</optgroup>';
 	}
 	echo '</select>';
 }

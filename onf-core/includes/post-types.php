@@ -86,3 +86,21 @@ function onf_event_statuses() {
 		'closed'       => __( 'Closed', 'onf-core' ),
 	);
 }
+
+/**
+ * Archived players: kept with all their history, hidden from the everyday Players list and pickers.
+ */
+function onf_is_archived( int $player_id ) {
+	return '1' === (string) get_post_meta( $player_id, '_onf_archived', true );
+}
+
+function onf_set_archived( int $player_id, bool $archived ) {
+	if ( 'player' !== get_post_type( $player_id ) ) {
+		return;
+	}
+	if ( $archived ) {
+		update_post_meta( $player_id, '_onf_archived', '1' );
+	} else {
+		delete_post_meta( $player_id, '_onf_archived' );
+	}
+}

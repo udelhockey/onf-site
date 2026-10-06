@@ -312,3 +312,200 @@ function onf_render_merge_players_page() {
 	<?php
 	echo '</div>';
 }
+
+/*
+ * Archiving: Players list shows active players by default, with an "Archived" view,
+ * Archive/Restore row and bulk actions, and a "Last event before…" filter.
+ */
+
+function onf_players_list_mode() {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- list view switch.
+	return isset( $_GET['onf_archived'] ) ? 'archived' : 'active';
+}
+
+/**
+ * IDs of players whose newest event is before $year (or who have no events, for $year = 'none').
+ *
+ * @return int[]
+ */
+function onf_players_last_event_before( $year ) {
+	global $wpdb;
+	if ( 'none' === $year ) {
+		return array_map(
+			'intval',
+			$wpdb->get_col( "SELECT p.ID FROM {$wpdb->posts} p LEFT JOIN " . onf_entries_table() . " e ON e.player_id = p.ID WHERE p.post_type = 'player' AND e.id IS NULL" ) // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		);
+	}
+	return array_map(
+		'intval',
+		$wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT e.player_id FROM ' . onf_entries_table() . " e JOIN {$wpdb->posts} ev ON ev.ID = e.event_id GROUP BY e.player_id HAVING MAX(YEAR(ev.post_date)) < %d",
+				(int) $year
+			)
+		)
+	);
+}
+
+add_action(
+	'pre_get_posts',
+	static function ( $query ) {
+		if ( ! is_admin() || ! $query->is_main_query() || 'player' !== $query->get( 'post_type' ) || 'edit-player' !== ( get_current_screen()->id ?? '' ) ) {
+			return;
+		}
+		$meta   = (array) $query->get( 'meta_query' );
+		$meta[] = 'archived' === onf_players_list_mode()
+			? array(
+				'key'   => '_onf_archived',
+				'value' => '1',
+			)
+			: array(
+				'key'     => '_onf_archived',
+				'compare' => 'NOT EXISTS',
+			);
+		$query->set( 'meta_query', $meta );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- list filter.
+		$before = sanitize_key( $_GET['onf_last_before'] ?? '' );
+		if ( '' !== $before ) {
+			$ids = onf_players_last_event_before( 'none' === $before ? 'none' : (int) $before );
+			$query->set( 'post__in', $ids ? $ids : array( 0 ) );
+		}
+	}
+);
+
+add_filter(
+	'views_edit-player',
+	static function ( $views ) {
+		global $wpdb;
+		$archived = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} m JOIN {$wpdb->posts} p ON p.ID = m.post_id AND p.post_type = 'player' AND p.post_status <> 'trash' WHERE m.meta_key = '_onf_archived' AND m.meta_value = '1'" );
+		$mode     = onf_players_list_mode();
+		if ( 'archived' === $mode ) {
+			foreach ( $views as $key => $html ) {
+				$views[ $key ] = str_replace( 'class="current"', '', $html );
+			}
+		}
+		$views['onf_archived'] = sprintf(
+			'<a href="%s"%s>%s <span class="count">(%d)</span></a>',
+			esc_url( admin_url( 'edit.php?post_type=player&onf_archived=1' ) ),
+			'archived' === $mode ? ' class="current" aria-current="page"' : '',
+			esc_html__( 'Archived', 'onf-core' ),
+			$archived
+		);
+		return $views;
+	}
+);
+
+add_action(
+	'restrict_manage_posts',
+	static function ( $post_type ) {
+		if ( 'player' !== $post_type ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- list filter.
+		$current = sanitize_key( $_GET['onf_last_before'] ?? '' );
+		if ( 'archived' === onf_players_list_mode() ) {
+			echo '<input type="hidden" name="onf_archived" value="1">';
+		}
+		echo '<label class="screen-reader-text" for="onf-last-before">' . esc_html__( 'Last event', 'onf-core' ) . '</label>';
+		echo '<select name="onf_last_before" id="onf-last-before"><option value="">' . esc_html__( 'Any last event', 'onf-core' ) . '</option>';
+		printf( '<option value="none" %s>%s</option>', selected( $current, 'none', false ), esc_html__( 'No events', 'onf-core' ) );
+		$this_year = (int) current_time( 'Y' );
+		for ( $year = $this_year; $year >= 2019; $year-- ) {
+			/* translators: %d: year */
+			printf( '<option value="%d" %s>%s</option>', $year, selected( $current, (string) $year, false ), esc_html( sprintf( __( 'Last event before %d', 'onf-core' ), $year ) ) );
+		}
+		echo '</select>';
+	}
+);
+
+add_filter(
+	'post_row_actions',
+	static function ( $actions, $post ) {
+		if ( 'player' !== $post->post_type || ! current_user_can( 'edit_post', $post->ID ) ) {
+			return $actions;
+		}
+		$archived = onf_is_archived( $post->ID );
+		$url      = wp_nonce_url( admin_url( 'admin-post.php?action=onf_archive_player&player=' . $post->ID . '&archive=' . ( $archived ? 0 : 1 ) ), 'onf_archive_player_' . $post->ID );
+		$actions['onf_archive'] = sprintf( '<a href="%s">%s</a>', esc_url( $url ), esc_html( $archived ? __( 'Restore', 'onf-core' ) : __( 'Archive', 'onf-core' ) ) );
+		return $actions;
+	},
+	10,
+	2
+);
+
+add_action(
+	'admin_post_onf_archive_player',
+	static function () {
+		$player_id = absint( $_GET['player'] ?? 0 );
+		check_admin_referer( 'onf_archive_player_' . $player_id );
+		if ( ! current_user_can( 'edit_post', $player_id ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'onf-core' ) );
+		}
+		$archive = ! empty( $_GET['archive'] );
+		onf_set_archived( $player_id, $archive );
+		$back = wp_get_referer() ? wp_get_referer() : admin_url( 'edit.php?post_type=player' );
+		wp_safe_redirect( add_query_arg( $archive ? 'onf_archived_n' : 'onf_restored_n', 1, remove_query_arg( array( 'onf_archived_n', 'onf_restored_n' ), $back ) ) );
+		exit;
+	}
+);
+
+add_filter(
+	'bulk_actions-edit-player',
+	static function ( $actions ) {
+		if ( 'archived' === onf_players_list_mode() ) {
+			$actions['onf_restore'] = __( 'Restore (un-archive)', 'onf-core' );
+		} else {
+			$actions['onf_archive'] = __( 'Archive', 'onf-core' );
+		}
+		return $actions;
+	},
+	20
+);
+
+add_filter(
+	'handle_bulk_actions-edit-player',
+	static function ( $redirect, $action, $post_ids ) {
+		if ( ! in_array( $action, array( 'onf_archive', 'onf_restore' ), true ) ) {
+			return $redirect;
+		}
+		$n = 0;
+		foreach ( $post_ids as $post_id ) {
+			if ( current_user_can( 'edit_post', $post_id ) ) {
+				onf_set_archived( (int) $post_id, 'onf_archive' === $action );
+				++$n;
+			}
+		}
+		return add_query_arg( 'onf_archive' === $action ? 'onf_archived_n' : 'onf_restored_n', $n, $redirect );
+	},
+	10,
+	3
+);
+
+add_action(
+	'admin_notices',
+	static function () {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- display only.
+		if ( isset( $_GET['onf_archived_n'] ) ) {
+			$n = absint( $_GET['onf_archived_n'] );
+			/* translators: %d: number of players */
+			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( sprintf( _n( '%d player archived. Their history and totals are kept; see the Archived view.', '%d players archived. Their history and totals are kept; see the Archived view.', $n, 'onf-core' ), $n ) ) );
+		}
+		if ( isset( $_GET['onf_restored_n'] ) ) {
+			$n = absint( $_GET['onf_restored_n'] );
+			/* translators: %d: number of players */
+			printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( sprintf( _n( '%d player restored.', '%d players restored.', $n, 'onf-core' ), $n ) ) );
+		}
+		// phpcs:enable
+	}
+);
+
+// On a player's edit screen, show that they're archived.
+add_action(
+	'post_submitbox_misc_actions',
+	static function ( $post ) {
+		if ( 'player' === $post->post_type && onf_is_archived( $post->ID ) ) {
+			echo '<div class="misc-pub-section"><strong>' . esc_html__( 'Archived', 'onf-core' ) . '</strong> — ' . esc_html__( 'hidden from the Players list; history kept.', 'onf-core' ) . '</div>';
+		}
+	}
+);

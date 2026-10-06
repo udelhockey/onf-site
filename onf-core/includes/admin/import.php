@@ -282,6 +282,7 @@ function onf_import_create_targets( array $map ) {
 						'meta_input'  => array(
 							'_onf_import_created' => 1,
 							'_onf_historical'     => 1,
+							'_onf_archived'       => '1',
 						),
 					)
 				);
