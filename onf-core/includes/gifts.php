@@ -150,6 +150,45 @@ function onf_gift_for_label( $gift ) {
 	return $main ? $main : ( $event ? $event : __( 'General donation', 'onf-core' ) );
 }
 
+/**
+ * Change what a gift is for and how it shows. Amount/date/method/reference only for manual gifts
+ * (Stripe and imported gifts must keep matching their payment record).
+ *
+ * @return true|WP_Error
+ */
+function onf_update_gift( int $gift_id, array $data ) {
+	global $wpdb;
+	$gift = onf_get_gift( $gift_id );
+	if ( ! $gift ) {
+		return new WP_Error( 'onf_gift_missing', __( 'Gift not found.', 'onf-core' ) );
+	}
+	$row = array(
+		'player_id'    => 'player' === get_post_type( absint( $data['player_id'] ?? 0 ) ) ? absint( $data['player_id'] ) : 0,
+		'event_id'     => 'onf_event' === get_post_type( absint( $data['event_id'] ?? 0 ) ) ? absint( $data['event_id'] ) : 0,
+		'fund_id'      => 'onf_fund' === get_post_type( absint( $data['fund_id'] ?? 0 ) ) ? absint( $data['fund_id'] ) : 0,
+		'display_name' => sanitize_text_field( $data['display_name'] ?? '' ),
+		'anonymous'    => empty( $data['anonymous'] ) ? 0 : 1,
+		'message'      => sanitize_textarea_field( $data['message'] ?? '' ),
+		'updated_at'   => current_time( 'mysql' ),
+	);
+	if ( 'manual' === $gift->source ) {
+		$amount = round( (float) ( $data['amount'] ?? 0 ), 2 );
+		if ( $amount <= 0 ) {
+			return new WP_Error( 'onf_gift_amount', __( 'Amount must be more than zero.', 'onf-core' ) );
+		}
+		$row['amount']    = $amount;
+		$row['method']    = array_key_exists( $data['method'] ?? '', onf_gift_methods() ) ? $data['method'] : $gift->method;
+		$row['reference'] = sanitize_text_field( $data['reference'] ?? '' );
+		if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) ( $data['gift_date'] ?? '' ) ) ) {
+			$row['gift_date'] = $data['gift_date'] . ' ' . substr( $gift->gift_date, 11, 8 );
+		}
+	}
+	$wpdb->update( onf_gifts_table(), $row, array( 'id' => $gift_id ) );
+	onf_flush_totals();
+	do_action( 'onf_gift_updated', $gift_id );
+	return true;
+}
+
 function onf_get_gift( int $gift_id ) {
 	global $wpdb;
 	return $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . onf_gifts_table() . ' WHERE id = %d', $gift_id ) );

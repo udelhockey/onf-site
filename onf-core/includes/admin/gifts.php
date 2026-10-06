@@ -13,6 +13,8 @@ add_action(
 		add_menu_page( __( 'Gifts', 'onf-core' ), __( 'Gifts', 'onf-core' ), ONF_GIFTS_CAP, 'onf-gifts', 'onf_render_gifts_page', 'dashicons-money-alt', 26 );
 		add_submenu_page( 'onf-gifts', __( 'All gifts', 'onf-core' ), __( 'All gifts', 'onf-core' ), ONF_GIFTS_CAP, 'onf-gifts', 'onf_render_gifts_page' );
 		add_submenu_page( 'onf-gifts', __( 'Add manual gift', 'onf-core' ), __( 'Add manual gift', 'onf-core' ), ONF_GIFTS_CAP, 'onf-add-gift', 'onf_render_add_gift_page' );
+		add_submenu_page( 'onf-gifts', __( 'Edit gift', 'onf-core' ), __( 'Edit gift', 'onf-core' ), ONF_GIFTS_CAP, 'onf-edit-gift', 'onf_render_edit_gift_page' );
+		remove_submenu_page( 'onf-gifts', 'onf-edit-gift' ); // Reached from the Edit link, not the menu.
 		add_submenu_page( 'onf-gifts', __( 'Email log', 'onf-core' ), __( 'Email log', 'onf-core' ), ONF_GIFTS_CAP, 'onf-email-log', 'onf_render_email_log_page' );
 	}
 );
@@ -134,6 +136,13 @@ class ONF_Gifts_List_Table extends WP_List_Table {
 			);
 			/* translators: %s: status name */
 			$actions[ $status ] = sprintf( '<a href="%s">%s</a>', esc_url( $url ), esc_html( sprintf( __( 'Mark %s', 'onf-core' ), strtolower( $label ) ) ) );
+		}
+		$actions = array( 'edit' => sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=onf-edit-gift&gift=' . (int) $item->id ) ), esc_html__( 'Edit', 'onf-core' ) ) ) + $actions;
+		if ( 'stripe' === $item->source && 'completed' === $item->status && $item->stripe_payment_intent ) {
+			$refund            = wp_nonce_url( admin_url( 'admin-post.php?action=onf_refund_gift&gift=' . (int) $item->id ), 'onf_refund_gift_' . $item->id );
+			$confirm           = esc_js( sprintf( /* translators: %s: amount */ __( 'Refund %s to the donor through Stripe? This cannot be undone.', 'onf-core' ), onf_money( (float) $item->amount + (float) $item->fee_covered ) ) );
+			$actions['refund'] = sprintf( '<a href="%s" class="submitdelete" onclick="return confirm(\'%s\');">%s</a>', esc_url( $refund ), $confirm, esc_html__( 'Refund…', 'onf-core' ) );
+			unset( $actions['refunded'] ); // A Stripe gift is refunded through Stripe, not just relabeled.
 		}
 		if ( 'completed' === $item->status || 'refunded' === $item->status ) {
 			$pdf                = wp_nonce_url( admin_url( 'admin-post.php?action=onf_receipt_pdf&gift=' . (int) $item->id ), 'onf_receipt_pdf_' . $item->id );
@@ -285,6 +294,8 @@ function onf_render_gift_notice() {
 		'donor_merged'  => __( 'Donors merged.', 'onf-core' ),
 		'donor_deleted' => __( 'Donor deleted.', 'onf-core' ),
 		'resent'        => __( 'Receipt sent again (see Gifts → Email log).', 'onf-core' ),
+		'refunded'      => __( 'Refunded through Stripe. The gift is now marked Refunded and left the totals.', 'onf-core' ),
+		'gift_saved'    => __( 'Gift updated. Totals are refreshed.', 'onf-core' ),
 	);
 	$key      = sanitize_key( $_GET['onf_msg'] ?? '' );
 	$error    = sanitize_text_field( wp_unslash( $_GET['onf_error'] ?? '' ) );
@@ -554,3 +565,111 @@ function onf_render_email_log_page() {
 	}
 	echo '</tbody></table></div>';
 }
+
+function onf_render_edit_gift_page() {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only.
+	$gift = onf_get_gift( absint( $_GET['gift'] ?? 0 ) );
+	echo '<div class="wrap"><h1>' . esc_html__( 'Edit gift', 'onf-core' ) . '</h1>';
+	if ( ! $gift ) {
+		echo '<p>' . esc_html__( 'Gift not found.', 'onf-core' ) . '</p></div>';
+		return;
+	}
+	onf_render_gift_notice();
+	$manual = 'manual' === $gift->source;
+	printf(
+		'<p>%s · %s · %s · %s</p>',
+		esc_html( onf_money( $gift->amount ) ),
+		esc_html( trim( $gift->donor_first_name . ' ' . $gift->donor_last_name ) ),
+		esc_html( onf_gift_sources()[ $gift->source ] ?? $gift->source ),
+		esc_html( $gift->receipt_number ? $gift->receipt_number : '#' . $gift->id )
+	);
+	?>
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<input type="hidden" name="action" value="onf_save_gift">
+		<input type="hidden" name="gift" value="<?php echo (int) $gift->id; ?>">
+		<?php wp_nonce_field( 'onf_save_gift_' . $gift->id ); ?>
+		<table class="form-table" role="presentation">
+			<tr><th><?php esc_html_e( 'For', 'onf-core' ); ?></th><td>
+				<?php
+				onf_post_select( 'player_id', 'player', (int) $gift->player_id, __( '— No player —', 'onf-core' ) );
+				onf_post_select( 'event_id', 'onf_event', (int) $gift->event_id, __( '— No event —', 'onf-core' ) );
+				onf_post_select( 'fund_id', 'onf_fund', (int) $gift->fund_id, __( '— No fund —', 'onf-core' ) );
+				?>
+				<p class="description"><?php esc_html_e( 'Moves the gift between player, event and fund totals. The donor, receipt and payment stay as they are.', 'onf-core' ); ?></p>
+			</td></tr>
+			<?php if ( $manual ) : ?>
+				<tr><th><label for="onf-amount"><?php esc_html_e( 'Amount ($)', 'onf-core' ); ?></label></th>
+					<td><input type="number" step="0.01" min="0.01" id="onf-amount" name="amount" value="<?php echo esc_attr( $gift->amount ); ?>" required></td></tr>
+				<tr><th><label for="onf-gift-date"><?php esc_html_e( 'Date received', 'onf-core' ); ?></label></th>
+					<td><input type="date" id="onf-gift-date" name="gift_date" value="<?php echo esc_attr( substr( $gift->gift_date, 0, 10 ) ); ?>"></td></tr>
+				<tr><th><label for="onf-method"><?php esc_html_e( 'Method', 'onf-core' ); ?></label></th>
+					<td><select id="onf-method" name="method">
+						<?php foreach ( array( 'check', 'cash', 'other' ) as $method ) : ?>
+							<option value="<?php echo esc_attr( $method ); ?>" <?php selected( $gift->method, $method ); ?>><?php echo esc_html( onf_gift_methods()[ $method ] ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<input type="text" name="reference" value="<?php echo esc_attr( $gift->reference ); ?>" class="regular-text" aria-label="<?php esc_attr_e( 'Check # / note', 'onf-core' ); ?>"></td></tr>
+			<?php else : ?>
+				<tr><th><?php esc_html_e( 'Amount', 'onf-core' ); ?></th>
+					<td><?php echo esc_html( onf_money( $gift->amount ) ); ?> <span class="description"><?php esc_html_e( '(online and imported gifts keep the amount that was paid)', 'onf-core' ); ?></span></td></tr>
+			<?php endif; ?>
+			<tr><th><label for="onf-display"><?php esc_html_e( 'Name on donor board', 'onf-core' ); ?></label></th>
+				<td><input type="text" id="onf-display" name="display_name" value="<?php echo esc_attr( $gift->display_name ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'Defaults to donor name', 'onf-core' ); ?>">
+				<label><input type="checkbox" name="anonymous" value="1" <?php checked( $gift->anonymous ); ?>> <?php esc_html_e( 'Show as Anonymous', 'onf-core' ); ?></label></td></tr>
+			<tr><th><label for="onf-message"><?php esc_html_e( 'Message', 'onf-core' ); ?></label></th>
+				<td><textarea id="onf-message" name="message" rows="3" class="large-text"><?php echo esc_textarea( $gift->message ); ?></textarea></td></tr>
+		</table>
+		<?php submit_button( __( 'Save gift', 'onf-core' ) ); ?>
+	</form>
+	<?php
+	echo '</div>';
+}
+
+add_action(
+	'admin_post_onf_save_gift',
+	static function () {
+		$gift_id = absint( $_POST['gift'] ?? 0 );
+		if ( ! current_user_can( ONF_GIFTS_CAP ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'onf-core' ) );
+		}
+		check_admin_referer( 'onf_save_gift_' . $gift_id );
+		$result = onf_update_gift( $gift_id, wp_unslash( $_POST ) );
+		$back   = admin_url( 'admin.php?page=onf-edit-gift&gift=' . $gift_id );
+		if ( is_wp_error( $result ) ) {
+			wp_safe_redirect( add_query_arg( 'onf_error', rawurlencode( $result->get_error_message() ), $back ) );
+			exit;
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=onf-gifts&onf_msg=gift_saved' ) );
+		exit;
+	}
+);
+
+add_action(
+	'admin_post_onf_refund_gift',
+	static function () {
+		$gift_id = absint( $_GET['gift'] ?? 0 );
+		if ( ! current_user_can( ONF_GIFTS_CAP ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'onf-core' ) );
+		}
+		check_admin_referer( 'onf_refund_gift_' . $gift_id );
+		$gift = onf_get_gift( $gift_id );
+		$back = admin_url( 'admin.php?page=onf-gifts' );
+		if ( ! $gift || 'stripe' !== $gift->source || 'completed' !== $gift->status || ! $gift->stripe_payment_intent ) {
+			wp_safe_redirect( add_query_arg( 'onf_error', rawurlencode( __( 'Only completed online gifts can be refunded here.', 'onf-core' ) ), $back ) );
+			exit;
+		}
+		$refund = onf_stripe_request(
+			'POST',
+			'refunds',
+			array( 'payment_intent' => $gift->stripe_payment_intent ),
+			array( 'Idempotency-Key' => 'onf-refund-' . $gift->id )
+		);
+		if ( is_wp_error( $refund ) ) {
+			wp_safe_redirect( add_query_arg( 'onf_error', rawurlencode( $refund->get_error_message() ), $back ) );
+			exit;
+		}
+		onf_set_gift_status( $gift_id, 'refunded' ); // The charge.refunded webhook arrives too; it's harmless.
+		wp_safe_redirect( add_query_arg( 'onf_msg', 'refunded', $back ) );
+		exit;
+	}
+);

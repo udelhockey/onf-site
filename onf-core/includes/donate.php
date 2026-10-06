@@ -36,10 +36,8 @@ function onf_donation_target( $player_id, $event_id, $fund_id ) {
 	$event_id  = 'onf_event' === get_post_type( (int) $event_id ) ? (int) $event_id : 0;
 	$fund_id   = 'onf_fund' === get_post_type( (int) $fund_id ) ? (int) $fund_id : 0;
 
-	// A closed event no longer collects; the gift still counts toward the player all-time.
-	if ( $event_id && 'closed' === get_post_meta( $event_id, 'status', true ) ) {
-		$event_id = 0;
-	}
+	// An event chosen explicitly counts even when it's closed (late gifts after an event).
+	// Player pages only pick an event automatically while it's Fundraising or Registration.
 	if ( $fund_id && ! get_post_meta( $fund_id, 'active', true ) ) {
 		return new WP_Error( 'fund_closed', __( 'This fund is not accepting gifts right now.', 'onf-core' ) );
 	}

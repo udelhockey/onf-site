@@ -106,6 +106,12 @@ function onf_send_email( $to, $subject, $html, $type, $gift_id = 0, array $attac
 	$sent = wp_mail( $to, $subject, $html, $headers, $attachments );
 	remove_action( 'wp_mail_failed', $catch );
 
+	$status = $sent ? 'sent' : 'failed';
+	$smtp   = get_option( 'wp_mail_smtp' );
+	if ( ! $sent && ! empty( $smtp['general']['do_not_send'] ) ) {
+		$status = 'blocked';
+		$error  = __( 'Not sent: WP Mail SMTP "Do Not Send" is on (staging).', 'onf-core' );
+	}
 	$wpdb->insert(
 		onf_email_log_table(),
 		array(
@@ -114,7 +120,7 @@ function onf_send_email( $to, $subject, $html, $type, $gift_id = 0, array $attac
 			'recipient'  => implode( ', ', $to ),
 			'subject'    => $subject,
 			'body'       => $html,
-			'status'     => $sent ? 'sent' : 'failed',
+			'status'     => $status,
 			'error'      => $error,
 			'created_at' => current_time( 'mysql' ),
 		)
