@@ -2,8 +2,9 @@
 /**
  * Donate form: [onf_donate] (becomes a block in step 3).
  *
- * On a player page it gives to that player in their current event; on an event page to the
- * event; on a fund page to the fund. Attributes override: [onf_donate player="12" event="34" fund="56"].
+ * On a player page it gives to that player in their current event (the newest event they're in that is
+ * Fundraising, else Registration); on an event page to the event; on a fund page to the fund.
+ * Attributes override: [onf_donate player="12"] (current event added), [onf_donate player="12" event="34"], [onf_donate fund="56"].
  * The donor picks an amount here, then pays on Stripe's hosted page and comes back to a thank-you.
  */
 
@@ -36,8 +37,11 @@ function onf_donation_target( $player_id, $event_id, $fund_id ) {
 	$event_id  = 'onf_event' === get_post_type( (int) $event_id ) ? (int) $event_id : 0;
 	$fund_id   = 'onf_fund' === get_post_type( (int) $fund_id ) ? (int) $fund_id : 0;
 
+	// No event given for a player: use the event they're fundraising in now (Fundraising, else Registration).
 	// An event chosen explicitly counts even when it's closed (late gifts after an event).
-	// Player pages only pick an event automatically while it's Fundraising or Registration.
+	if ( $player_id && ! $event_id ) {
+		$event_id = onf_player_current_event( $player_id );
+	}
 	if ( $fund_id && ! get_post_meta( $fund_id, 'active', true ) ) {
 		return new WP_Error( 'fund_closed', __( 'This fund is not accepting gifts right now.', 'onf-core' ) );
 	}
@@ -82,8 +86,7 @@ function onf_donate_shortcode( $atts ) {
 		$id   = get_queried_object_id();
 		$type = get_post_type( $id );
 		if ( 'player' === $type ) {
-			$player = $id;
-			$event  = onf_player_current_event( $id );
+			$player = $id; // Their current event is added by onf_donation_target().
 		} elseif ( 'onf_event' === $type ) {
 			$event = $id;
 		} elseif ( 'onf_fund' === $type ) {

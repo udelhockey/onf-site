@@ -13,8 +13,6 @@ add_action(
 		add_menu_page( __( 'Gifts', 'onf-core' ), __( 'Gifts', 'onf-core' ), ONF_GIFTS_CAP, 'onf-gifts', 'onf_render_gifts_page', 'dashicons-money-alt', 26 );
 		add_submenu_page( 'onf-gifts', __( 'All gifts', 'onf-core' ), __( 'All gifts', 'onf-core' ), ONF_GIFTS_CAP, 'onf-gifts', 'onf_render_gifts_page' );
 		add_submenu_page( 'onf-gifts', __( 'Add manual gift', 'onf-core' ), __( 'Add manual gift', 'onf-core' ), ONF_GIFTS_CAP, 'onf-add-gift', 'onf_render_add_gift_page' );
-		add_submenu_page( 'onf-gifts', __( 'Edit gift', 'onf-core' ), __( 'Edit gift', 'onf-core' ), ONF_GIFTS_CAP, 'onf-edit-gift', 'onf_render_edit_gift_page' );
-		remove_submenu_page( 'onf-gifts', 'onf-edit-gift' ); // Reached from the Edit link, not the menu.
 		add_submenu_page( 'onf-gifts', __( 'Email log', 'onf-core' ), __( 'Email log', 'onf-core' ), ONF_GIFTS_CAP, 'onf-email-log', 'onf_render_email_log_page' );
 	}
 );
@@ -99,6 +97,7 @@ class ONF_Gifts_List_Table extends WP_List_Table {
 
 	public function get_columns() {
 		return array(
+			'cb'        => '<input type="checkbox">',
 			'gift_date' => __( 'Date', 'onf-core' ),
 			'amount'    => __( 'Amount', 'onf-core' ),
 			'donor'     => __( 'Donor', 'onf-core' ),
@@ -106,6 +105,24 @@ class ONF_Gifts_List_Table extends WP_List_Table {
 			'source'    => __( 'Source', 'onf-core' ),
 			'status'    => __( 'Status', 'onf-core' ),
 		);
+	}
+
+	protected function column_cb( $item ) {
+		return sprintf( '<input type="checkbox" name="gift[]" value="%d" aria-label="%s">', (int) $item->id, esc_attr__( 'Select gift', 'onf-core' ) );
+	}
+
+	protected function get_bulk_actions() {
+		return array( 'assign_event' => __( 'Assign to event…', 'onf-core' ) );
+	}
+
+	protected function extra_tablenav( $which ) {
+		if ( 'top' !== $which ) {
+			return;
+		}
+		echo '<div class="alignleft actions">';
+		onf_post_select( 'bulk_event_id', 'onf_event', 0, __( '— Event for "Assign to event" —', 'onf-core' ) );
+		echo '<p class="description">' . esc_html__( 'Tick gifts, choose "Assign to event…" and an event, then Apply. Choose no event to remove them from their event.', 'onf-core' ) . '</p>';
+		echo '</div>';
 	}
 
 	public function prepare_items() {
@@ -137,7 +154,7 @@ class ONF_Gifts_List_Table extends WP_List_Table {
 			/* translators: %s: status name */
 			$actions[ $status ] = sprintf( '<a href="%s">%s</a>', esc_url( $url ), esc_html( sprintf( __( 'Mark %s', 'onf-core' ), strtolower( $label ) ) ) );
 		}
-		$actions = array( 'edit' => sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=onf-edit-gift&gift=' . (int) $item->id ) ), esc_html__( 'Edit', 'onf-core' ) ) ) + $actions;
+		$actions = array( 'edit' => sprintf( '<a href="%s">%s</a>', esc_url( admin_url( 'admin.php?page=onf-gifts&edit=' . (int) $item->id ) ), esc_html__( 'Edit', 'onf-core' ) ) ) + $actions;
 		if ( 'stripe' === $item->source && 'completed' === $item->status && $item->stripe_payment_intent ) {
 			$refund            = wp_nonce_url( admin_url( 'admin-post.php?action=onf_refund_gift&gift=' . (int) $item->id ), 'onf_refund_gift_' . $item->id );
 			$confirm           = esc_js( sprintf( /* translators: %s: amount */ __( 'Refund %s to the donor through Stripe? This cannot be undone.', 'onf-core' ), onf_money( (float) $item->amount + (float) $item->fee_covered ) ) );
@@ -230,6 +247,11 @@ function onf_post_select( string $name, string $post_type, int $selected, string
 }
 
 function onf_render_gifts_page() {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- routing only.
+	if ( isset( $_GET['edit'] ) ) {
+		onf_render_edit_gift_page( absint( $_GET['edit'] ) );
+		return;
+	}
 	$table   = new ONF_Gifts_List_Table();
 	$filters = onf_gift_filters_from_request();
 	$table->prepare_items();
@@ -296,6 +318,7 @@ function onf_render_gift_notice() {
 		'resent'        => __( 'Receipt sent again (see Gifts → Email log).', 'onf-core' ),
 		'refunded'      => __( 'Refunded through Stripe. The gift is now marked Refunded and left the totals.', 'onf-core' ),
 		'gift_saved'    => __( 'Gift updated. Totals are refreshed.', 'onf-core' ),
+		'assigned'      => __( 'Gifts assigned. Totals are refreshed.', 'onf-core' ),
 	);
 	$key      = sanitize_key( $_GET['onf_msg'] ?? '' );
 	$error    = sanitize_text_field( wp_unslash( $_GET['onf_error'] ?? '' ) );
@@ -566,9 +589,8 @@ function onf_render_email_log_page() {
 	echo '</tbody></table></div>';
 }
 
-function onf_render_edit_gift_page() {
-	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only.
-	$gift = onf_get_gift( absint( $_GET['gift'] ?? 0 ) );
+function onf_render_edit_gift_page( int $gift_id ) {
+	$gift = onf_get_gift( $gift_id );
 	echo '<div class="wrap"><h1>' . esc_html__( 'Edit gift', 'onf-core' ) . '</h1>';
 	if ( ! $gift ) {
 		echo '<p>' . esc_html__( 'Gift not found.', 'onf-core' ) . '</p></div>';
@@ -634,7 +656,7 @@ add_action(
 		}
 		check_admin_referer( 'onf_save_gift_' . $gift_id );
 		$result = onf_update_gift( $gift_id, wp_unslash( $_POST ) );
-		$back   = admin_url( 'admin.php?page=onf-edit-gift&gift=' . $gift_id );
+		$back   = admin_url( 'admin.php?page=onf-gifts&edit=' . $gift_id );
 		if ( is_wp_error( $result ) ) {
 			wp_safe_redirect( add_query_arg( 'onf_error', rawurlencode( $result->get_error_message() ), $back ) );
 			exit;
@@ -670,6 +692,44 @@ add_action(
 		}
 		onf_set_gift_status( $gift_id, 'refunded' ); // The charge.refunded webhook arrives too; it's harmless.
 		wp_safe_redirect( add_query_arg( 'onf_msg', 'refunded', $back ) );
+		exit;
+	}
+);
+
+// Bulk "Assign to event": runs before the Gifts page prints anything, then redirects back.
+add_action(
+	'load-toplevel_page_onf-gifts',
+	static function () {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- nonce checked below once the action is known.
+		$action = sanitize_key( $_REQUEST['action'] ?? '' );
+		if ( 'assign_event' !== $action ) {
+			$action = sanitize_key( $_REQUEST['action2'] ?? '' );
+		}
+		if ( 'assign_event' !== $action ) {
+			return;
+		}
+		// phpcs:enable
+		check_admin_referer( 'bulk-gifts' );
+		if ( ! current_user_can( ONF_GIFTS_CAP ) ) {
+			wp_die( esc_html__( 'Sorry, you are not allowed to do that.', 'onf-core' ) );
+		}
+		global $wpdb;
+		$event_id = absint( $_REQUEST['bulk_event_id'] ?? 0 );
+		$event_id = 'onf_event' === get_post_type( $event_id ) ? $event_id : 0;
+		$ids      = array_filter( array_map( 'absint', (array) ( $_REQUEST['gift'] ?? array() ) ) );
+		foreach ( $ids as $id ) {
+			$wpdb->update(
+				onf_gifts_table(),
+				array(
+					'event_id'   => $event_id,
+					'updated_at' => current_time( 'mysql' ),
+				),
+				array( 'id' => $id )
+			);
+		}
+		onf_flush_totals();
+		$back = remove_query_arg( array( 'action', 'action2', 'gift', 'bulk_event_id', '_wpnonce', '_wp_http_referer' ), wp_get_referer() ? wp_get_referer() : admin_url( 'admin.php?page=onf-gifts' ) );
+		wp_safe_redirect( add_query_arg( 'onf_msg', $ids ? 'assigned' : '', $back ) );
 		exit;
 	}
 );
