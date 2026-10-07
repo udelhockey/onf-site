@@ -57,17 +57,15 @@ function onf_whole_dollars( $amount ) {
 	return $amount ? '$' . number_format( (float) $amount ) : '—';
 }
 
-function onf_render_totals_page() {
+/**
+ * All the totals, optionally limited to a range of years. Shared by the Totals screen and the PDF report.
+ *
+ * by_year:   gift year => total
+ * by_series: series id (0 = event with no series, -1 = no event) => event year => total
+ * by_fund:   fund id => gift year => total
+ */
+function onf_totals_data( int $from = 0, int $to = 9999 ) {
 	global $wpdb;
-	echo '<div class="wrap"><h1>' . esc_html__( 'Totals', 'onf-core' ) . '</h1>';
-
-	if ( isset( $_POST['onf_setup_series'] ) && check_admin_referer( 'onf_setup_series' ) && current_user_can( ONF_GIFTS_CAP ) ) {
-		$done = onf_setup_series();
-		/* translators: 1: events, 2: funds */
-		echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( '%1$d events put into series, %2$d funds linked to a series.', 'onf-core' ), $done['events'], $done['funds'] ) ) . '</p></div>';
-	}
-
-	// Event → [ year, series ].
 	$event_info = array();
 	foreach ( get_posts( array( 'post_type' => 'onf_event', 'post_status' => array( 'publish', 'draft', 'future', 'private' ), 'posts_per_page' => -1 ) ) as $event ) {
 		$event_info[ $event->ID ] = array(
@@ -81,26 +79,49 @@ function onf_render_totals_page() {
 	);
 
 	$by_year   = array();
-	$by_series = array(); // series_id (0 = no series, -1 = no event) => event year => total
-	$by_fund   = array(); // fund_id => gift year => total
+	$by_series = array();
+	$by_fund   = array();
 	$all_years = array();
 	foreach ( $rows as $r ) {
-		$total                 = (float) $r->total;
-		$y                     = (int) $r->y;
-		$by_year[ $y ]         = ( $by_year[ $y ] ?? 0 ) + $total;
-		$all_years[ $y ]       = true;
-		$event                 = $event_info[ (int) $r->event_id ] ?? null;
-		$series                = $r->event_id ? ( $event ? $event['series'] : 0 ) : -1;
-		$ey                    = $event ? $event['year'] : $y;
-		$all_years[ $ey ]      = true;
-		$by_series[ $series ][ $ey ] = ( $by_series[ $series ][ $ey ] ?? 0 ) + $total;
-		if ( $r->fund_id ) {
-			$by_fund[ (int) $r->fund_id ][ $y ] = ( $by_fund[ (int) $r->fund_id ][ $y ] ?? 0 ) + $total;
+		$total = (float) $r->total;
+		$y     = (int) $r->y;
+		$event = $event_info[ (int) $r->event_id ] ?? null;
+		$ey    = $event ? $event['year'] : $y;
+		if ( $y >= $from && $y <= $to ) {
+			$by_year[ $y ]   = ( $by_year[ $y ] ?? 0 ) + $total;
+			$all_years[ $y ] = true;
+			if ( $r->fund_id ) {
+				$by_fund[ (int) $r->fund_id ][ $y ] = ( $by_fund[ (int) $r->fund_id ][ $y ] ?? 0 ) + $total;
+			}
+		}
+		if ( $ey >= $from && $ey <= $to ) {
+			$series                        = $r->event_id ? ( $event ? $event['series'] : 0 ) : -1;
+			$all_years[ $ey ]              = true;
+			$by_series[ $series ][ $ey ] = ( $by_series[ $series ][ $ey ] ?? 0 ) + $total;
 		}
 	}
 	$years = array_keys( $all_years );
 	sort( $years );
-	$grand = array_sum( $by_year );
+	return compact( 'by_year', 'by_series', 'by_fund', 'years', 'event_info' );
+}
+
+function onf_render_totals_page() {
+	global $wpdb;
+	echo '<div class="wrap"><h1>' . esc_html__( 'Totals', 'onf-core' ) . '</h1>';
+
+	if ( isset( $_POST['onf_setup_series'] ) && check_admin_referer( 'onf_setup_series' ) && current_user_can( ONF_GIFTS_CAP ) ) {
+		$done = onf_setup_series();
+		/* translators: 1: events, 2: funds */
+		echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( '%1$d events put into series, %2$d funds linked to a series.', 'onf-core' ), $done['events'], $done['funds'] ) ) . '</p></div>';
+	}
+
+	$t          = onf_totals_data();
+	$by_year    = $t['by_year'];
+	$by_series  = $t['by_series'];
+	$by_fund    = $t['by_fund'];
+	$years      = $t['years'];
+	$event_info = $t['event_info'];
+	$grand      = array_sum( $by_year );
 
 	printf(
 		'<p style="font-size:1.4em"><strong>%s</strong> %s</p>',
@@ -108,6 +129,7 @@ function onf_render_totals_page() {
 		esc_html( onf_money( $grand ) )
 	);
 	echo '<p class="description">' . esc_html__( 'Completed donations only (refunds and event payments excluded), including GiveWP history since 2015.', 'onf-core' ) . '</p>';
+	echo '<p><a class="button" href="#onf-report">' . esc_html__( 'Create a PDF report…', 'onf-core' ) . '</a></p>';
 
 	// Foundation by year.
 	echo '<h2>' . esc_html__( 'By year', 'onf-core' ) . '</h2><table class="widefat striped" style="width:auto"><thead><tr>';
@@ -169,6 +191,8 @@ function onf_render_totals_page() {
 	foreach ( $event_info as $info ) {
 		$unassigned += $info['series'] ? 0 : 1;
 	}
+	onf_render_report_form();
+
 	echo '<h2>' . esc_html__( 'Series setup', 'onf-core' ) . '</h2>';
 	echo '<p>' . esc_html__( 'Puts each event without a series into one named after it ("2025 Herb Mitchell Cup" → Herb Mitchell Cup; both 2022 Pre-Draft divisions → Pre-Draft Showcase), and links each fund to the series its gifts came in under (Dolan Fund → holiday giving). Only fills what\'s missing. Adjust any of it under Events → Series, or a fund\'s "Event series".', 'onf-core' ) . '</p>';
 	/* translators: %d: number of events */
@@ -225,7 +249,7 @@ function onf_render_year_matrix( array $data, array $years, callable $label ) {
  *
  * @return array [ rows => [ event_id => [ year, cells => [ col => total ] ] ], cols => [ col => label ] ]
  */
-function onf_series_grid_data( int $term_id ) {
+function onf_series_grid_data( int $term_id, int $from = 0, int $to = 9999 ) {
 	global $wpdb;
 	$events = get_posts(
 		array(
@@ -241,6 +265,13 @@ function onf_series_grid_data( int $term_id ) {
 			),
 		)
 	);
+	if ( ! $events ) {
+		return array(
+			'rows' => array(),
+			'cols' => array(),
+		);
+	}
+	$events = array_values( array_filter( $events, static fn( $id ) => onf_event_year( $id ) >= $from && onf_event_year( $id ) <= $to ) );
 	if ( ! $events ) {
 		return array(
 			'rows' => array(),
