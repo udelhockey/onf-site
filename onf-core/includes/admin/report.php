@@ -59,7 +59,10 @@ function onf_render_report_form() {
 					<?php endforeach; ?>
 					<label><?php esc_html_e( 'How many top fundraisers', 'onf-core' ); ?> <input type="number" name="top" value="10" min="3" max="50" class="small-text"></label>
 				</td></tr>
-			<tr><th><?php esc_html_e( 'Series for the campaign grids', 'onf-core' ); ?></th>
+			<tr><th><?php esc_html_e( 'Scope', 'onf-core' ); ?></th>
+				<td><label><input type="radio" name="scope" value="all" checked> <?php esc_html_e( 'Whole foundation (series ticks only choose the campaign grids)', 'onf-core' ); ?></label><br>
+					<label><input type="radio" name="scope" value="series"> <?php esc_html_e( 'Only the ticked series — summary, funds and top fundraisers count just those events (e.g. a holiday-only report)', 'onf-core' ); ?></label></td></tr>
+			<tr><th><?php esc_html_e( 'Series', 'onf-core' ); ?></th>
 				<td>
 					<?php foreach ( $series as $term_id => $name ) : ?>
 						<label><input type="checkbox" name="series[]" value="<?php echo (int) $term_id; ?>" checked> <?php echo esc_html( $name ); ?></label><br>
@@ -123,6 +126,12 @@ class ONF_Report {
 			$this->pdf->text( $this->left, $this->y, $note, 9, 'italic', ONF_REPORT_GRAY );
 			$this->y += 18;
 		}
+	}
+
+	/** Small gray line of text. */
+	public function note( $text ) {
+		$this->need( 20 );
+		$this->y = $this->pdf->paragraph( $this->left, $this->y, $this->right - $this->left, $text, 9, 'italic', 1.4, ONF_REPORT_GRAY ) + 8;
 	}
 
 	public function subheading( $text ) {
@@ -281,17 +290,61 @@ function onf_build_totals_report( array $o ) {
 	$names    = onf_series_options();
 	$r        = new ONF_Report( $o['title'], $o['subtitle'], $range );
 
+	// Scope: whole foundation, or only gifts to the ticked series' events (any year).
+	$chosen = array_map( 'intval', (array) $o['series'] );
+	$scoped = 'series' === ( $o['scope'] ?? '' ) && $chosen;
+	$scope  = '';
+	if ( $scoped ) {
+		$event_ids = get_posts(
+			array(
+				'post_type'      => 'onf_event',
+				'post_status'    => array( 'publish', 'draft', 'future', 'private' ),
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
+					array(
+						'taxonomy' => 'onf_series',
+						'terms'    => $chosen,
+					),
+				),
+			)
+		);
+		$scope = $event_ids ? ' AND event_id IN (' . implode( ',', array_map( 'intval', $event_ids ) ) . ')' : ' AND 1 = 0';
+	}
+
+	// Say exactly what this report includes, so a missing section is never a mystery.
+	$labels = array(
+		'summary' => __( 'Summary', 'onf-core' ),
+		'series'  => __( 'Series by year', 'onf-core' ),
+		'grids'   => __( 'Campaign grids', 'onf-core' ),
+		'funds'   => __( 'Funds by year', 'onf-core' ),
+		/* translators: %d: number of fundraisers */
+		'players' => sprintf( __( 'Top %d fundraisers', 'onf-core' ), max( 3, min( 50, (int) $o['top'] ) ) ),
+	);
+	$parts  = array_values( array_intersect_key( $labels, array_flip( $sections ) ) );
+	if ( in_array( 'grids', $sections, true ) ) {
+		$chosen_names = array_filter( array_map( static fn( $id ) => $names[ (int) $id ] ?? '', $chosen ) );
+		/* translators: %s: series names */
+		$parts[] = $chosen_names ? sprintf( __( 'grids for: %s', 'onf-core' ), implode( ', ', $chosen_names ) ) : __( 'no series chosen for grids', 'onf-core' );
+	}
+	$scope_label = $scoped
+		/* translators: %s: series names */
+		? sprintf( __( 'only %s', 'onf-core' ), implode( ', ', array_filter( array_map( static fn( $id ) => $names[ $id ] ?? '', $chosen ) ) ) )
+		: __( 'whole foundation', 'onf-core' );
+	/* translators: 1: scope, 2: years, 3: list of sections */
+	$r->note( sprintf( __( 'Scope: %1$s  ·  Years %2$s  ·  Includes: %3$s', 'onf-core' ), $scope_label, $range, implode( ', ', $parts ) ) );
+
 	if ( in_array( 'summary', $sections, true ) ) {
 		$stats    = $wpdb->get_results(
 			$wpdb->prepare(
 				'SELECT YEAR(gift_date) AS y, COUNT(*) AS gifts, COUNT(DISTINCT NULLIF(donor_id, 0)) AS donors, SUM(amount) AS total FROM ' . onf_gifts_table() . "
-				WHERE status = 'completed' AND type = 'donation' AND YEAR(gift_date) BETWEEN %d AND %d GROUP BY y ORDER BY y",
+				WHERE status = 'completed' AND type = 'donation' AND YEAR(gift_date) BETWEEN %d AND %d $scope GROUP BY y ORDER BY y",
 				$from,
 				$to
 			)
 		);
-		$all_time = (float) $wpdb->get_var( 'SELECT SUM(amount) FROM ' . onf_gifts_table() . " WHERE status = 'completed' AND type = 'donation'" );
-		$donors   = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(DISTINCT donor_id) FROM ' . onf_gifts_table() . " WHERE status = 'completed' AND type = 'donation' AND donor_id > 0 AND YEAR(gift_date) BETWEEN %d AND %d", $from, $to ) );
+		$all_time = (float) $wpdb->get_var( 'SELECT SUM(amount) FROM ' . onf_gifts_table() . " WHERE status = 'completed' AND type = 'donation' $scope" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $scope is integers.
+		$donors   = (int) $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(DISTINCT donor_id) FROM ' . onf_gifts_table() . " WHERE status = 'completed' AND type = 'donation' AND donor_id > 0 AND YEAR(gift_date) BETWEEN %d AND %d $scope", $from, $to ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$sum      = array_sum( wp_list_pluck( $stats, 'total' ) );
 		$gifts    = array_sum( wp_list_pluck( $stats, 'gifts' ) );
 
@@ -326,7 +379,7 @@ function onf_build_totals_report( array $o ) {
 	if ( in_array( 'series', $sections, true ) ) {
 		$r->heading( __( 'Event series by year', 'onf-core' ), __( 'Each yearly event counted in its event\'s year.', 'onf-core' ) );
 		$r->year_table(
-			$t['by_series'],
+			$scoped ? array_intersect_key( $t['by_series'], array_flip( $chosen ) ) : $t['by_series'],
 			$t['years'],
 			static function ( $id ) use ( $names ) {
 				if ( -1 === $id ) {
@@ -339,8 +392,8 @@ function onf_build_totals_report( array $o ) {
 	}
 
 	if ( in_array( 'grids', $sections, true ) ) {
-		$chosen = array_map( 'intval', (array) $o['series'] );
 		$first  = true;
+		$shown  = 0;
 		foreach ( $chosen as $term_id ) {
 			$grid = onf_series_grid_data( $term_id, $from, $to );
 			if ( ! $grid['cols'] ) {
@@ -379,12 +432,25 @@ function onf_build_totals_report( array $o ) {
 			$total['bold'] = true;
 			$rows[]        = $total;
 			$r->table( $cols, $rows );
+			++$shown;
+		}
+		if ( ! $shown ) {
+			$r->heading( __( 'Campaigns by year and fund', 'onf-core' ) );
+			/* translators: %s: years */
+			$r->note( $chosen ? sprintf( __( 'None of the chosen series has gifts in %s.', 'onf-core' ), $range ) : __( 'No series were ticked for the campaign grids.', 'onf-core' ) );
 		}
 	}
 
 	if ( in_array( 'funds', $sections, true ) ) {
 		$r->heading( __( 'Funds by year', 'onf-core' ), __( 'Counted in the year the gift was made.', 'onf-core' ) );
-		$r->year_table( $t['by_fund'], $t['years'], static fn( $id ) => get_the_title( $id ), __( 'Fund', 'onf-core' ) );
+		$by_fund = $t['by_fund'];
+		if ( $scoped ) {
+			$by_fund = array();
+			foreach ( $wpdb->get_results( $wpdb->prepare( 'SELECT fund_id, YEAR(gift_date) AS y, SUM(amount) AS total FROM ' . onf_gifts_table() . " WHERE status = 'completed' AND type = 'donation' AND fund_id > 0 AND YEAR(gift_date) BETWEEN %d AND %d $scope GROUP BY fund_id, y", $from, $to ) ) as $row ) { // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				$by_fund[ (int) $row->fund_id ][ (int) $row->y ] = (float) $row->total;
+			}
+		}
+		$r->year_table( $by_fund, $t['years'], static fn( $id ) => get_the_title( $id ), __( 'Fund', 'onf-core' ) );
 	}
 
 	if ( in_array( 'players', $sections, true ) ) {
@@ -392,7 +458,7 @@ function onf_build_totals_report( array $o ) {
 		$players = $wpdb->get_results(
 			$wpdb->prepare(
 				'SELECT player_id, COUNT(*) AS gifts, COUNT(DISTINCT NULLIF(event_id, 0)) AS events, SUM(amount) AS total FROM ' . onf_gifts_table() . "
-				WHERE status = 'completed' AND type = 'donation' AND player_id > 0 AND YEAR(gift_date) BETWEEN %d AND %d
+				WHERE status = 'completed' AND type = 'donation' AND player_id > 0 AND YEAR(gift_date) BETWEEN %d AND %d $scope
 				GROUP BY player_id ORDER BY total DESC LIMIT %d",
 				$from,
 				$to,
@@ -401,11 +467,16 @@ function onf_build_totals_report( array $o ) {
 		);
 		/* translators: 1: number, 2: year range */
 		$r->heading( sprintf( __( 'Top %1$d fundraisers, %2$s', 'onf-core' ), $top, $range ) );
+		if ( ! $players ) {
+			/* translators: %s: years */
+			$r->note( sprintf( __( 'No gifts to players in %s.', 'onf-core' ), $range ) );
+		}
 		$rows = array();
 		foreach ( $players as $i => $p ) {
 			$rows[] = array( (string) ( $i + 1 ), get_the_title( $p->player_id ), number_format( (int) $p->events ), number_format( (int) $p->gifts ), onf_whole_dollars( $p->total ) );
 		}
-		$r->table(
+		if ( $rows ) {
+			$r->table(
 			array(
 				array( '#', 40, 'right' ),
 				array( __( 'Player', 'onf-core' ), 260, 'left' ),
@@ -414,7 +485,8 @@ function onf_build_totals_report( array $o ) {
 				array( __( 'Raised', 'onf-core' ), 120, 'right' ),
 			),
 			$rows
-		);
+			);
+		}
 	}
 
 	return $r->finish();
@@ -443,6 +515,7 @@ add_action(
 				'sections' => $sections ? $sections : array_keys( onf_report_sections() ),
 				'series'   => array_map( 'absint', (array) ( $in['series'] ?? array() ) ),
 				'top'      => absint( $in['top'] ?? 10 ),
+				'scope'    => 'series' === ( $in['scope'] ?? '' ) ? 'series' : 'all',
 			)
 		);
 		nocache_headers();
