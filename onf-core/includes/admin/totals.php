@@ -9,9 +9,10 @@ defined( 'ABSPATH' ) || exit;
 add_action(
 	'admin_menu',
 	static function () {
-		add_submenu_page( 'onf-gifts', __( 'Totals', 'onf-core' ), __( 'Totals', 'onf-core' ), ONF_GIFTS_CAP, 'onf-totals', 'onf_render_totals_page' );
+		// Registered after the Gifts menu exists (priority 10); listed second in it.
+		add_submenu_page( 'onf-gifts', __( 'Totals', 'onf-core' ), __( 'Totals', 'onf-core' ), ONF_GIFTS_CAP, 'onf-totals', 'onf_render_totals_page', 1 );
 	},
-	9
+	11
 );
 
 /**
