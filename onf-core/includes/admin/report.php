@@ -120,7 +120,7 @@ class ONF_Report {
 		$this->y += 6;
 		$this->pdf->text( $this->left, $this->y, $text, 14, 'bold', ONF_REPORT_NAVY );
 		$this->y += 8;
-		$this->pdf->rect( $this->left, $this->y, 36, 2, array( 0.161, 0.671, 0.886 ) ); // logo blue accent
+		$this->pdf->rect( $this->left, $this->y, 36, 2, array( 0.431, 0.757, 0.894 ) ); // Ice Blue #6EC1E4 accent
 		$this->y += 14;
 		if ( $note ) {
 			$this->pdf->text( $this->left, $this->y, $note, 9, 'italic', ONF_REPORT_GRAY );

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       ONF Core
  * Description:       Open Net Foundation site features: players, events, funds, gifts, donors, registration hooks, and admin branding.
- * Version:           0.7.2
+ * Version:           0.7.3
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Author:            Madkel
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ONF_CORE_VERSION', '0.7.2' );
+define( 'ONF_CORE_VERSION', '0.7.3' );
 define( 'ONF_CORE_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ONF_CORE_URL', plugin_dir_url( __FILE__ ) );
 

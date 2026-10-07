@@ -92,7 +92,7 @@ Astra theme + Elementor/Elementor Pro (+ Ultimate Addons), Classic Editor plugin
 - [ ] At cutover: run Import from GiveWP again on LIVE (after onf-core is installed there) — it imports every live donation; re-runs add only new ones.
 - [ ] Not yet built: online "mail a check" pledge option, weekly/monthly email reports, partial refunds (only full refunds change status), donor "look up my receipts" link.
 - [ ] Review the migrated event names (old categories renamed, e.g. 2018Player → 2018 Face-off for Teen Mental Health, 2019Adult → 2019 Face-off for Juvenile Arthritis, 2022Adult → 2022 Face-off for Teen Mental Health) and add dates/venues. Events are created as closed drafts, dated by their first GiveWP form (often months before the event, e.g. 2021 Chowder Cup shows 2020-04-26) — set real start dates.
-- [ ] **Brand blue:** adopt logo blue **#29ABE2** (C70 M15 Y0 K0) in place of Ice Blue #6EC1E4? (recommended) — decide at start of Phase 2.
+- [x] **Brand blue (Bob, 2026-10-07): follow the brand guide — accent is Ice Blue #6EC1E4** (not logo blue #29ABE2). Navy #0F2A3F stays primary.
 - [ ] Wordmark font name — ask original designer or run a rendered wordmark through WhatTheFont/Matcherator. Not blocking.
 - [x] Player fields: keep all existing; add favorite NHL team + sponsor.
 - [x] Name-merge list confirmed (Nick/Nicholas Butler = same person).
