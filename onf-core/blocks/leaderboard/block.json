@@ -33,6 +33,10 @@
 		"heading": {
 			"type": "string",
 			"default": "Top fundraisers"
+		},
+		"more": {
+			"type": "boolean",
+			"default": true
 		}
 	},
 	"usesContext": [
@@ -41,6 +45,7 @@
 	],
 	"supports": {
 		"html": false,
+		"anchor": true,
 		"align": [
 			"wide",
 			"full"

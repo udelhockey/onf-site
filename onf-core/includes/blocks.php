@@ -21,6 +21,7 @@ add_action(
 			ONF_CORE_VERSION,
 			true
 		);
+		wp_register_script( 'onf-roster-filter', ONF_CORE_URL . 'blocks/roster-filter.js', array(), ONF_CORE_VERSION, array( 'in_footer' => true, 'strategy' => 'defer' ) );
 		$callbacks = array(
 			'donate'           => 'onf_render_donate_block',
 			'progress'         => 'onf_render_progress_block',
@@ -69,6 +70,8 @@ add_action(
  * Player pages: GiveWP form or ONF donations (Gifts → Settings → Player-page donations).
  * ------------------------------------------------------------------------------------------------
  */
+
+const ONF_REWARD_PLACES = 5;
 
 function onf_player_donations_onf() {
 	return 'onf' === onf_setting( 'player_donations' );
@@ -199,6 +202,20 @@ function onf_event_status_label( int $event_id ) {
 	);
 	$status = (string) get_post_meta( $event_id, 'status', true );
 	return $labels[ $status ] ?? '';
+}
+
+/**
+ * Does the event have a roster? Then gifts go through player pages, not an event-wide form.
+ */
+function onf_event_has_players( int $event_id ) {
+	return (bool) onf_get_event_entries( $event_id );
+}
+
+/**
+ * The event page's roster (#players), so donors pick a player and give on that player's page.
+ */
+function onf_event_players_url( int $event_id, int $current_post = 0 ) {
+	return ( $event_id === $current_post ? '' : get_permalink( $event_id ) ) . '#players';
 }
 
 function onf_event_is_open( int $event_id ) {
@@ -475,6 +492,16 @@ function onf_render_donate_block( $a, $content, $block ) {
 		return onf_block_note( __( 'Donate: this fund is not accepting gifts (tick "Accepting gifts" on the fund).', 'onf-core' ) );
 	}
 
+	// Events with players raise money through the player pages: point donors there, no event-wide form.
+	if ( $event && ! $player && ! $fund && onf_event_has_players( $event ) ) {
+		if ( 'button' !== $a['mode'] ) {
+			return onf_block_note( __( 'Donate form: hidden on events with players — donors give on a player’s page (the roster on this page links to them).', 'onf-core' ) );
+		}
+		$label = '' !== trim( $a['label'] ) ? $a['label'] : __( 'Find a player to support', 'onf-core' );
+		$href  = onf_event_players_url( $event, $post );
+		return '<div ' . get_block_wrapper_attributes( array( 'class' => 'wp-block-buttons onf-donate-button' ) ) . '><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="' . esc_url( $href ) . '">' . esc_html( $label ) . '</a></div></div>';
+	}
+
 	if ( 'button' === $a['mode'] ) {
 		$label = '' !== trim( $a['label'] ) ? $a['label'] : __( 'Donate', 'onf-core' );
 		if ( $target && $target === $post ) {
@@ -639,9 +666,10 @@ function onf_render_leaderboard_block( $a, $content, $block ) {
 	if ( ! $rows ) {
 		return onf_block_note( __( 'Leaderboard: no players in this event yet.', 'onf-core' ) );
 	}
-	$limit = (int) $a['limit'];
-	$shown = $limit > 0 ? array_slice( $rows, 0, $limit ) : $rows;
-	$grid  = 'grid' === $a['layout'];
+	$limit   = (int) $a['limit'];
+	$more    = ! empty( $a['more'] ) && $limit > 0 && count( $rows ) > $limit;
+	$grid    = 'grid' === $a['layout'];
+	$rewards = $grid ? array() : onf_event_rewards( $event );
 
 	$html = '';
 	if ( '' !== trim( $a['heading'] ) ) {
@@ -650,28 +678,116 @@ function onf_render_leaderboard_block( $a, $content, $block ) {
 	if ( 'onf_event' !== get_post_type( $post ) || $event !== $post ) {
 		$html .= '<p class="onf-leaderboard__event">' . onf_maybe_link( $event ) . '</p>';
 	}
-	$html .= '<ol class="onf-leaderboard__list' . ( $grid ? ' is-grid' : '' ) . '">';
-	foreach ( $shown as $i => $row ) {
+	// A name search when the whole roster is on the page (hidden without JavaScript; the list still works).
+	if ( ( $more || $limit <= 0 ) && count( $rows ) > 12 ) {
+		wp_enqueue_script( 'onf-roster-filter' );
+		$html .= '<p class="onf-roster-filter" hidden><label class="screen-reader-text" for="onf-roster-filter-' . (int) $event . '">' . esc_html__( 'Find a player', 'onf-core' ) . '</label>'
+			. '<input type="search" id="onf-roster-filter-' . (int) $event . '" placeholder="' . esc_attr__( 'Find a player by name…', 'onf-core' ) . '" autocomplete="off"></p>';
+	}
+
+	$item = static function ( $row, $i ) use ( $grid, $rewards ) {
 		$thumb = get_the_post_thumbnail( $row->player_id, $grid ? 'medium' : 'thumbnail', array( 'class' => 'onf-leader__img', 'alt' => '' ) );
 		if ( ! $thumb ) {
 			$initials = implode( '', array_map( static fn( $w ) => mb_substr( $w, 0, 1 ), array_slice( preg_split( '/\s+/', trim( $row->name ) ), 0, 2 ) ) );
 			$thumb    = '<span class="onf-leader__img onf-leader__img--initials" aria-hidden="true">' . esc_html( mb_strtoupper( $initials ) ) . '</span>';
 		}
-		$html .= '<li class="onf-leader">'
-			. '<span class="onf-leader__rank">' . ( $i + 1 ) . '</span>'
+		$place  = $i + 1;
+		$reward = '';
+		if ( $rewards ) {
+			// Quiet: a small picture (or gift icon) beside the place, only for players who have raised something.
+			$r       = $rewards[ $place ] ?? null;
+			$reward  = '<span class="onf-leader__reward">';
+			$reward .= ( $r && $row->total > 0 ) ? onf_reward_icon( $r, $place ) : '';
+			$reward .= '</span>';
+		}
+		return '<li class="onf-leader">'
+			. '<span class="onf-leader__rank">' . $place . '</span>'
+			. $reward
 			. $thumb
 			. '<span class="onf-leader__body">' . onf_maybe_link( $row->player_id, $row->name, 'onf-leader__name' )
 			. onf_progress_bar( $row->total, $row->goal )
 			. '</span>'
 			. '<span class="onf-leader__amount">' . esc_html( onf_display_money( $row->total ) ) . '</span>'
 			. '</li>';
+	};
+
+	$top   = $limit > 0 ? array_slice( $rows, 0, $limit ) : $rows;
+	$class = 'onf-leaderboard__list' . ( $grid ? ' is-grid' : '' ) . ( $rewards ? ' has-rewards' : '' );
+	$html .= '<ol class="' . $class . '">';
+	foreach ( $top as $i => $row ) {
+		$html .= $item( $row, $i );
 	}
 	$html .= '</ol>';
-	if ( $limit > 0 && count( $rows ) > $limit && $event !== $post ) {
+	if ( $more ) {
 		/* translators: %d: number of players */
-		$html .= '<p class="onf-leaderboard__all">' . onf_maybe_link( $event, sprintf( __( 'See all %d players', 'onf-core' ), count( $rows ) ) ) . '</p>';
+		$html .= '<details class="onf-leaderboard__more"><summary>' . esc_html( sprintf( __( 'Show all %d players', 'onf-core' ), count( $rows ) ) ) . '</summary>';
+		$html .= '<ol class="' . $class . '" start="' . ( $limit + 1 ) . '">';
+		foreach ( array_slice( $rows, $limit, null, true ) as $i => $row ) {
+			$html .= $item( $row, $i );
+		}
+		$html .= '</ol></details>';
+	} elseif ( $limit > 0 && count( $rows ) > $limit && $event !== $post && 'publish' === get_post_status( $event ) ) {
+		/* translators: %d: number of players */
+		$html .= '<p class="onf-leaderboard__all"><a href="' . esc_url( onf_event_players_url( $event ) ) . '">' . esc_html( sprintf( __( 'See all %d players', 'onf-core' ), count( $rows ) ) ) . '</a></p>';
 	}
-	return onf_block_wrap( 'onf-leaderboard', $html );
+	if ( $rewards ) {
+		$legend = array();
+		foreach ( $rewards as $place => $r ) {
+			if ( '' !== $r['label'] ) {
+				$legend[] = onf_ordinal( $place ) . ' ' . $r['label'];
+			}
+		}
+		if ( $legend ) {
+			/* translators: %s: list of rewards, e.g. "1st ONF hoodie · 2nd T-shirt" */
+			$html .= '<p class="onf-leaderboard__rewards">' . esc_html( sprintf( __( 'Thank-you gifts for our top fundraisers: %s', 'onf-core' ), implode( ' · ', $legend ) ) ) . '</p>';
+		}
+	}
+	$extra = ! empty( $a['anchor'] ) ? array( 'id' => sanitize_html_class( $a['anchor'] ) ) : array();
+	return onf_block_wrap( 'onf-leaderboard', $html, $extra );
+}
+
+/**
+ * Top-fundraiser rewards for an event (set on the event edit screen).
+ *
+ * @return array place => [ label, image ] (attachment ID or 0), places 1–ONF_REWARD_PLACES.
+ */
+function onf_event_rewards( int $event_id ) {
+	$saved = get_post_meta( $event_id, '_onf_rewards', true );
+	$out   = array();
+	foreach ( is_array( $saved ) ? $saved : array() as $place => $r ) {
+		$place = (int) $place;
+		if ( $place >= 1 && $place <= ONF_REWARD_PLACES && is_array( $r ) ) {
+			$out[ $place ] = array(
+				'label' => (string) ( $r['label'] ?? '' ),
+				'image' => (int) ( $r['image'] ?? 0 ),
+			);
+		}
+	}
+	ksort( $out );
+	return $out;
+}
+
+/**
+ * The small reward marker beside a place: the reward's picture, else a gift icon.
+ */
+function onf_reward_icon( array $r, int $place ) {
+	/* translators: 1: place (1st), 2: reward name */
+	$text = '' !== $r['label'] ? sprintf( __( '%1$s place: %2$s', 'onf-core' ), onf_ordinal( $place ), $r['label'] ) : sprintf( __( '%s place reward', 'onf-core' ), onf_ordinal( $place ) );
+	$img  = $r['image'] ? wp_get_attachment_image( $r['image'], 'thumbnail', false, array( 'alt' => $text, 'title' => $text, 'class' => 'onf-reward-img' ) ) : '';
+	if ( $img ) {
+		return $img;
+	}
+	return '<span class="onf-reward-gift" role="img" aria-label="' . esc_attr( $text ) . '" title="' . esc_attr( $text ) . '">'
+		. '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20 7h-2.2A3 3 0 0 0 12 3.8 3 3 0 0 0 6.2 7H4a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1Zm-6-1.5a1.5 1.5 0 1 1 1.5 1.5H14V5.5ZM8.5 4A1.5 1.5 0 0 1 10 5.5V7H8.5a1.5 1.5 0 0 1 0-3ZM5 9h6v1H5V9Zm2 3h4v7H7v-7Zm10 7h-4v-7h4v7Zm2-9h-6V9h6v1Z"/></svg></span>';
+}
+
+/**
+ * 1st, 2nd, 3rd, 4th …
+ */
+function onf_ordinal( int $n ) {
+	$suffix = array( 'th', 'st', 'nd', 'rd' );
+	$v      = $n % 100;
+	return $n . ( $suffix[ ( $v - 20 ) % 10 ] ?? $suffix[ $v ] ?? $suffix[0] );
 }
 
 /*
@@ -850,7 +966,11 @@ function onf_render_event_details_block( $a, $content, $block ) {
 		if ( 'registration' === $status && $reg ) {
 			$buttons .= '<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="' . esc_url( $reg ) . '">' . esc_html__( 'Register', 'onf-core' ) . '</a></div>';
 		}
-		if ( onf_event_is_open( $event ) ) {
+		if ( onf_event_has_players( $event ) ) {
+			// Donors give on a player's page: send them to the roster.
+			$style    = $buttons ? ' is-style-on-dark' : '';
+			$buttons .= '<div class="wp-block-button' . $style . '"><a class="wp-block-button__link wp-element-button" href="' . esc_url( onf_event_players_url( $event, $post ) ) . '">' . esc_html__( 'Find a player to support', 'onf-core' ) . '</a></div>';
+		} elseif ( onf_event_is_open( $event ) ) {
 			$style    = $buttons ? ' is-style-on-dark' : '';
 			$href     = $event === $post ? '#onf-donate' : get_permalink( $event ) . '#onf-donate';
 			$buttons .= '<div class="wp-block-button' . $style . '"><a class="wp-block-button__link wp-element-button" href="' . esc_url( $href ) . '">' . esc_html__( 'Donate', 'onf-core' ) . '</a></div>';
@@ -948,9 +1068,14 @@ function onf_render_cards_block( $a, $content, $block ) {
 			if ( $open ) {
 				$html .= $sum['total'] > 0 ? onf_progress_bar( $sum['total'], $goal ) : '';
 				$reg   = 'registration' === get_post_meta( $id, 'status', true ) ? (string) get_post_meta( $id, 'registration_url', true ) : '';
-				$html .= $reg
-					? '<p class="onf-card__cta"><a class="onf-card__button" href="' . esc_url( $reg ) . '">' . esc_html__( 'Register', 'onf-core' ) . '</a></p>'
-					: '<p class="onf-card__cta"><a class="onf-card__button" href="' . esc_url( $url . '#onf-donate' ) . '">' . esc_html__( 'Donate', 'onf-core' ) . '</a></p>';
+				if ( $reg ) {
+					$cta = array( $reg, __( 'Register', 'onf-core' ) );
+				} elseif ( $players ) {
+					$cta = array( onf_event_players_url( $id ), __( 'Find a player to support', 'onf-core' ) ); // Gifts happen on player pages.
+				} else {
+					$cta = array( $url . '#onf-donate', __( 'Donate', 'onf-core' ) );
+				}
+				$html .= '<p class="onf-card__cta"><a class="onf-card__button" href="' . esc_url( $cta[0] ) . '">' . esc_html( $cta[1] ) . '</a></p>';
 			}
 		}
 		$html .= '</div></li>';

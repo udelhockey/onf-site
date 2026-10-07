@@ -6,7 +6,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ONF_THEME_VERSION', '0.1.0' );
+define( 'ONF_THEME_VERSION', '0.1.1' );
 
 add_action(
 	'wp_enqueue_scripts',
@@ -47,6 +47,38 @@ add_action(
  */
 function onf_theme_logo( $file ) {
 	return esc_url( get_theme_file_uri( 'assets/logos/' . $file ) );
+}
+
+/*
+ * Elementor Pro's Theme Builder (still installed until cutover) swaps in its own page layout wherever
+ * one of its templates matches — on staging, "player -general" matches every player page — because a
+ * block theme registers no Elementor locations. For pages this theme owns (players, events, funds,
+ * the events list and series pages) keep our block template. Old Elementor-built pages are untouched.
+ */
+add_filter(
+	'template_include',
+	static function ( $template ) {
+		$GLOBALS['onf_theme_block_template'] = $template; // What WordPress picked, before Elementor (priority 11).
+		return $template;
+	},
+	10
+);
+add_filter(
+	'template_include',
+	static function ( $template ) {
+		$ours = $GLOBALS['onf_theme_block_template'] ?? '';
+		if ( $ours && $template !== $ours && onf_theme_owns_request() ) {
+			return $ours;
+		}
+		return $template;
+	},
+	99
+);
+
+function onf_theme_owns_request() {
+	return is_singular( array( 'player', 'onf_event', 'onf_fund' ) )
+		|| is_post_type_archive( 'onf_event' )
+		|| is_tax( 'onf_series' );
 }
 
 /**

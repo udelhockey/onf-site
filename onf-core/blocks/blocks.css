@@ -705,3 +705,88 @@ a.onf-leader__name:hover {
 		max-width: 15rem;
 	}
 }
+
+/* Roster: name search, and the whole player card is the link to the player's page. */
+.onf-leaderboard {
+	scroll-margin-top: 1rem;
+}
+.onf-roster-filter {
+	margin: 0 0 1rem;
+	max-width: 24rem;
+}
+.onf-roster-filter input {
+	background: var(--wp--preset--color--white, #fff);
+	border: 1px solid #b8bec4;
+	border-radius: var(--wp--custom--radius--button, 4px);
+	box-sizing: border-box;
+	font: inherit;
+	padding: 0.625rem 0.75rem;
+	width: 100%;
+}
+.onf-leader[hidden] {
+	display: none;
+}
+
+/* Rewards: a small picture (or gift icon) beside the place — present, not promoted. */
+.onf-leaderboard__list.has-rewards .onf-leader {
+	grid-template-columns: 1.75rem 1.75rem 2.75rem minmax(0, 1fr) auto;
+}
+.onf-leader__reward {
+	align-items: center;
+	display: flex;
+	height: 1.75rem;
+	justify-content: center;
+	width: 1.75rem;
+}
+.onf-reward-img {
+	border-radius: 50%;
+	height: 1.75rem;
+	object-fit: cover;
+	width: 1.75rem;
+}
+.onf-reward-gift {
+	color: var(--onf-rink);
+	display: inline-flex;
+}
+.is-style-section-navy .onf-reward-gift {
+	color: var(--onf-ice);
+}
+.onf-leaderboard__rewards {
+	font-size: var(--wp--preset--font-size--x-small, 0.8125rem);
+	margin: 0.75rem 0 0;
+	opacity: 0.8;
+}
+.onf-leaderboard__more {
+	margin-top: 0.25rem;
+}
+.onf-leaderboard__more > summary {
+	color: var(--onf-rink);
+	cursor: pointer;
+	font-weight: 700;
+	padding: 0.75rem 0;
+}
+.onf-leaderboard__more[open] > summary {
+	padding-bottom: 0.25rem;
+}
+@media (max-width: 480px) {
+	.onf-leader,
+	.onf-leaderboard__list.has-rewards .onf-leader {
+		gap: 0.5rem;
+	}
+	.onf-leaderboard__list.has-rewards .onf-leader {
+		grid-template-columns: 1.5rem 1.5rem 2.25rem minmax(0, 1fr) auto;
+	}
+	.onf-leaderboard__list.has-rewards .onf-leader__reward,
+	.onf-leaderboard__list.has-rewards .onf-reward-img {
+		height: 1.5rem;
+		width: 1.5rem;
+	}
+}
+.onf-leaderboard__list.is-grid a.onf-leader__name::after {
+	content: "";
+	inset: 0;
+	position: absolute;
+}
+.onf-leaderboard__list.is-grid .onf-leader:has(a.onf-leader__name):hover {
+	border-color: var(--onf-ice);
+}

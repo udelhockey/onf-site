@@ -69,7 +69,7 @@
 
 		<!-- wp:column {"width":"38%"} -->
 		<div class="wp-block-column" style="flex-basis:38%">
-			<!-- wp:onf/leaderboard {"limit":5} /-->
+			<!-- wp:onf/leaderboard {"limit":5,"more":false} /-->
 		</div>
 		<!-- /wp:column -->
 	</div>

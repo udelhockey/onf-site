@@ -309,6 +309,7 @@
 			return panel( __( 'Leaderboard', 'onf-core' ), [
 				el( PostPicker, { key: 'e', postType: 'onf_event', label: __( 'Event', 'onf-core' ), help: __( 'Empty = this event page, or the event fundraising now.', 'onf-core' ), value: props.attributes.event, onChange: function ( v ) { props.setAttributes( { event: v } ); } } ),
 				number( props, 'limit', __( 'How many (0 = whole roster)', 'onf-core' ), 0, 50 ),
+				toggle( props, 'more', __( '“Show all players” button below', 'onf-core' ), __( 'Off = a “See all” link to the event page instead. Rewards are set on the event (Top fundraiser rewards).', 'onf-core' ) ),
 				select( props, 'layout', __( 'Layout', 'onf-core' ), [
 					{ value: 'list', label: __( 'Ranked list', 'onf-core' ) },
 					{ value: 'grid', label: __( 'Photo cards', 'onf-core' ) },
