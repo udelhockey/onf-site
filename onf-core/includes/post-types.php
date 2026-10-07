@@ -104,3 +104,20 @@ function onf_set_archived( int $player_id, bool $archived ) {
 		delete_post_meta( $player_id, '_onf_archived' );
 	}
 }
+
+/**
+ * Yoast Duplicate Post: when a player page is copied, don't copy its old web addresses or ONF's own data
+ * (GiveWP links, archived/merged flags, private contact details). The copy starts as a clean new player.
+ */
+add_filter(
+	'duplicate_post_meta_keys_filter',
+	static function ( $keys ) {
+		$private = array( '_wp_old_slug', 'email', 'phone', 'notes', 'birthday' );
+		return array_values(
+			array_filter(
+				(array) $keys,
+				static fn( $key ) => ! in_array( $key, $private, true ) && ! str_starts_with( (string) $key, '_onf_' )
+			)
+		);
+	}
+);

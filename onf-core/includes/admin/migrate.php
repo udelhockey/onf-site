@@ -89,6 +89,7 @@ function onf_render_migration_page() {
 		if ( $report ) {
 			onf_render_migration_report( $report, 'run' === $mode );
 		}
+		onf_render_old_slug_cleanup();
 		?>
 	</div>
 	<?php
@@ -417,4 +418,78 @@ function onf_render_migration_report( array $report, bool $committed ) {
 	/* translators: %s: action */
 	printf( '<li>%s</li>', esc_html( sprintf( __( 'Old ACF "Player" field group: %s', 'onf-core' ), $report['acf'] ) ) );
 	echo '</ul>';
+}
+
+/**
+ * Old player addresses (_wp_old_slug). Copying a player page with Yoast Duplicate Post copied the
+ * original's old addresses too, so one old address can sit on dozens of players and WordPress redirects
+ * a dead link to whichever comes first. Keep an old address only on the player whose name it matches
+ * (nicknames count: nick-falkowski ↔ Nicholas Falkowski); remove the rest.
+ *
+ * @return array [ kept => [ slug => title ], removed => n, players => n ]
+ */
+function onf_cleanup_old_slugs( bool $commit ) {
+	global $wpdb;
+	$rows    = $wpdb->get_results(
+		"SELECT m.meta_id, m.post_id, m.meta_value AS slug, p.post_title, p.post_name FROM {$wpdb->postmeta} m
+		JOIN {$wpdb->posts} p ON p.ID = m.post_id AND p.post_type = 'player'
+		WHERE m.meta_key = '_wp_old_slug'"
+	);
+	$kept    = array();
+	$remove  = array();
+	$touched = array();
+	$seen    = array();
+	foreach ( $rows as $row ) {
+		$slug_name = onf_import_canonical( onf_import_name_key( preg_replace( '/-\d+$/', '', str_replace( '-', ' ', $row->slug ) ) ) );
+		$own_name  = onf_import_canonical( onf_import_name_key( $row->post_title ) );
+		$key       = $row->post_id . '|' . $row->slug;
+		if ( $row->slug !== $row->post_name && $slug_name === $own_name && ! isset( $seen[ $key ] ) ) {
+			$kept[ $row->slug ] = $row->post_title;
+			$seen[ $key ]       = true;
+			continue;
+		}
+		$remove[]                  = (int) $row->meta_id;
+		$touched[ $row->post_id ] = true;
+	}
+	if ( $commit && $remove ) {
+		foreach ( array_chunk( $remove, 500 ) as $chunk ) {
+			$wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE meta_id IN (" . implode( ',', $chunk ) . ')' ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- integers.
+		}
+		foreach ( array_keys( $touched ) as $post_id ) {
+			clean_post_cache( $post_id );
+		}
+	}
+	return array(
+		'kept'    => $kept,
+		'removed' => count( $remove ),
+		'players' => count( $touched ),
+	);
+}
+
+function onf_render_old_slug_cleanup() {
+	$result = null;
+	$commit = false;
+	if ( isset( $_POST['onf_slug_mode'] ) && check_admin_referer( 'onf_slug_cleanup' ) ) {
+		$commit = 'run' === $_POST['onf_slug_mode'];
+		$result = onf_cleanup_old_slugs( $commit );
+	}
+	echo '<hr><h2>' . esc_html__( 'Clean up old player addresses', 'onf-core' ) . '</h2>';
+	echo '<p>' . esc_html__( 'Copying player pages copied their old web addresses too, so a dead link (e.g. a merged player) can redirect to the wrong player. This keeps an old address only on the player whose name it matches and removes the rest. Current addresses are not affected.', 'onf-core' ) . '</p>';
+	echo '<form method="post">';
+	wp_nonce_field( 'onf_slug_cleanup' );
+	echo '<button class="button" name="onf_slug_mode" value="dry">' . esc_html__( 'Dry run (changes nothing)', 'onf-core' ) . '</button> ';
+	echo '<button class="button button-primary" name="onf_slug_mode" value="run" onclick="return confirm(\'' . esc_js( __( 'Remove the copied old addresses now?', 'onf-core' ) ) . '\');">' . esc_html__( 'Clean up', 'onf-core' ) . '</button>';
+	echo '</form>';
+	if ( $result ) {
+		/* translators: 1: removed, 2: players */
+		echo '<h3>' . esc_html( $commit ? __( 'Done', 'onf-core' ) : __( 'Dry run — nothing was changed', 'onf-core' ) ) . '</h3><p>' . esc_html( sprintf( __( '%1$d copied old addresses removed from %2$d players.', 'onf-core' ), $result['removed'], $result['players'] ) ) . '</p>';
+		if ( $result['kept'] ) {
+			/* translators: %d: count */
+			echo '<p>' . esc_html( sprintf( __( 'Kept %d genuine old addresses (they redirect to the right player):', 'onf-core' ), count( $result['kept'] ) ) ) . '</p><ul>';
+			foreach ( $result['kept'] as $slug => $title ) {
+				printf( '<li>/player/%s/ → %s</li>', esc_html( $slug ), esc_html( $title ) );
+			}
+			echo '</ul>';
+		}
+	}
 }
