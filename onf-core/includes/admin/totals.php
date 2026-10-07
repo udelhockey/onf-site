@@ -141,6 +141,17 @@ function onf_render_totals_page() {
 		}
 	);
 
+	// One grid per series: years down, funds across.
+	echo '<h2>' . esc_html__( 'Campaigns by year and fund', 'onf-core' ) . '</h2>';
+	echo '<p class="description">' . esc_html__( 'Across a row: that year\'s campaign, all funds together. Down a column: that fund over all years. Each gift is counted once.', 'onf-core' ) . '</p>';
+	$series_totals = $by_series;
+	unset( $series_totals[0], $series_totals[-1] );
+	uasort( $series_totals, static fn( $a, $b ) => array_sum( $b ) <=> array_sum( $a ) );
+	foreach ( array_keys( $series_totals ) as $term_id ) {
+		echo '<h3>' . esc_html( $series_names[ $term_id ] ?? '#' . $term_id ) . '</h3>';
+		onf_render_series_grid( (int) $term_id );
+	}
+
 	// Funds by gift year.
 	echo '<h2>' . esc_html__( 'By fund', 'onf-core' ) . '</h2>';
 	onf_render_year_matrix(
@@ -206,3 +217,116 @@ function onf_render_year_matrix( array $data, array $years, callable $label ) {
 	}
 	echo '</tbody></table></div>';
 }
+
+/**
+ * Grid for one series: rows = its yearly events, columns = funds (+ player pages, general),
+ * with totals across (each year's campaign) and down (each fund over all years).
+ *
+ * @return array [ rows => [ event_id => [ year, cells => [ col => total ] ] ], cols => [ col => label ] ]
+ */
+function onf_series_grid_data( int $term_id ) {
+	global $wpdb;
+	$events = get_posts(
+		array(
+			'post_type'      => 'onf_event',
+			'post_status'    => array( 'publish', 'draft', 'future', 'private' ),
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
+				array(
+					'taxonomy' => 'onf_series',
+					'terms'    => $term_id,
+				),
+			),
+		)
+	);
+	if ( ! $events ) {
+		return array(
+			'rows' => array(),
+			'cols' => array(),
+		);
+	}
+	$ids  = implode( ',', array_map( 'intval', $events ) );
+	$sums = $wpdb->get_results(
+		'SELECT event_id, fund_id, (player_id > 0) AS has_player, SUM(amount) AS total FROM ' . onf_gifts_table() . "
+		WHERE status = 'completed' AND type = 'donation' AND event_id IN ($ids)
+		GROUP BY event_id, fund_id, has_player" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- integers.
+	);
+
+	$rows = array();
+	foreach ( $events as $event_id ) {
+		$rows[ $event_id ] = array(
+			'year'  => onf_event_year( $event_id ),
+			'title' => get_the_title( $event_id ),
+			'cells' => array(),
+		);
+	}
+	$cols = array();
+	foreach ( $sums as $s ) {
+		if ( $s->fund_id ) {
+			$col          = 'f' . $s->fund_id;
+			$cols[ $col ] = get_the_title( $s->fund_id );
+		} elseif ( $s->has_player ) {
+			$col          = 'players';
+			$cols[ $col ] = __( 'Player pages', 'onf-core' );
+		} else {
+			$col          = 'general';
+			$cols[ $col ] = __( 'General', 'onf-core' );
+		}
+		$rows[ $s->event_id ]['cells'][ $col ] = ( $rows[ $s->event_id ]['cells'][ $col ] ?? 0 ) + (float) $s->total;
+	}
+	// Funds A–Z, then player pages, then general.
+	uksort(
+		$cols,
+		static function ( $a, $b ) use ( $cols ) {
+			$rank = static fn( $k ) => 'players' === $k ? 1 : ( 'general' === $k ? 2 : 0 );
+			return $rank( $a ) <=> $rank( $b ) ?: strcasecmp( $cols[ $a ], $cols[ $b ] );
+		}
+	);
+	uasort( $rows, static fn( $a, $b ) => $a['year'] <=> $b['year'] ?: strcmp( $a['title'], $b['title'] ) );
+	return array(
+		'rows' => $rows,
+		'cols' => $cols,
+	);
+}
+
+function onf_render_series_grid( int $term_id ) {
+	$grid = onf_series_grid_data( $term_id );
+	if ( ! $grid['cols'] ) {
+		echo '<p>' . esc_html__( 'No gifts in this series yet.', 'onf-core' ) . '</p>';
+		return;
+	}
+	// Two events in the same year (e.g. two divisions) show their names; otherwise just the year.
+	$years = array_count_values( wp_list_pluck( $grid['rows'], 'year' ) );
+	$down  = array();
+	echo '<div style="overflow-x:auto"><table class="widefat striped" style="width:auto"><thead><tr><th></th>';
+	foreach ( $grid['cols'] as $label ) {
+		echo '<th>' . esc_html( $label ) . '</th>';
+	}
+	echo '<th>' . esc_html__( 'Campaign total', 'onf-core' ) . '</th></tr></thead><tbody>';
+	foreach ( $grid['rows'] as $event_id => $row ) {
+		$label = $years[ $row['year'] ] > 1 ? $row['title'] : (string) $row['year'];
+		printf( '<tr><th scope="row"><a href="%s">%s</a></th>', esc_url( get_edit_post_link( $event_id ) ), esc_html( $label ) );
+		foreach ( array_keys( $grid['cols'] ) as $col ) {
+			$v            = $row['cells'][ $col ] ?? 0;
+			$down[ $col ] = ( $down[ $col ] ?? 0 ) + $v;
+			echo '<td>' . esc_html( onf_whole_dollars( $v ) ) . '</td>';
+		}
+		echo '<td><strong>' . esc_html( onf_whole_dollars( array_sum( $row['cells'] ) ) ) . '</strong></td></tr>';
+	}
+	echo '<tr><th scope="row">' . esc_html__( 'All-time', 'onf-core' ) . '</th>';
+	foreach ( array_keys( $grid['cols'] ) as $col ) {
+		echo '<td><strong>' . esc_html( onf_whole_dollars( $down[ $col ] ?? 0 ) ) . '</strong></td>';
+	}
+	echo '<td><strong>' . esc_html( onf_whole_dollars( array_sum( $down ) ) ) . '</strong></td></tr>';
+	echo '</tbody></table></div>';
+}
+
+// The grid on each series' own edit page (Events → Series → a series).
+add_action(
+	'onf_series_edit_form',
+	static function ( $term ) {
+		echo '<h2>' . esc_html__( 'Totals by year and fund', 'onf-core' ) . '</h2>';
+		onf_render_series_grid( (int) $term->term_id );
+	}
+);
