@@ -331,3 +331,34 @@ add_action(
 		onf_render_series_grid( (int) $term->term_id );
 	}
 );
+
+// First load after installing: group existing events into series and link funds, once.
+add_action(
+	'admin_init',
+	static function () {
+		if ( get_option( 'onf_series_setup_done' ) || ! current_user_can( ONF_GIFTS_CAP ) ) {
+			return;
+		}
+		update_option( 'onf_series_setup_done', current_time( 'mysql' ), false );
+		$done = onf_setup_series();
+		set_transient( 'onf_series_setup_notice', $done, HOUR_IN_SECONDS );
+	}
+);
+
+add_action(
+	'admin_notices',
+	static function () {
+		$done = get_transient( 'onf_series_setup_notice' );
+		if ( ! $done ) {
+			return;
+		}
+		delete_transient( 'onf_series_setup_notice' );
+		printf(
+			'<div class="notice notice-success is-dismissible"><p>%s <a href="%s">%s</a></p></div>',
+			/* translators: 1: events, 2: funds */
+			esc_html( sprintf( __( 'Event series set up: %1$d events grouped into series, %2$d funds linked.', 'onf-core' ), $done['events'], $done['funds'] ) ),
+			esc_url( admin_url( 'admin.php?page=onf-totals' ) ),
+			esc_html__( 'See Gifts → Totals', 'onf-core' )
+		);
+	}
+);
