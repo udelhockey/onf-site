@@ -90,6 +90,7 @@ function onf_render_migration_page() {
 			onf_render_migration_report( $report, 'run' === $mode );
 		}
 		onf_render_old_slug_cleanup();
+		onf_render_ep_id_fill();
 		?>
 	</div>
 	<?php
@@ -491,5 +492,78 @@ function onf_render_old_slug_cleanup() {
 			}
 			echo '</ul>';
 		}
+	}
+}
+
+/**
+ * Fill the EliteProspects ID field from the [iframe … eliteprospects … player=123] embeds in player pages.
+ * Only blank fields are filled. Once a player has the ID, the old embed is hidden on their page and the
+ * Player profile block shows the stats instead (the content itself is not changed).
+ *
+ * @return array [ filled => [ player_id => ep_id ], already => n, conflicts => [ player_id => ids ] ]
+ */
+function onf_fill_ep_ids( bool $commit ) {
+	global $wpdb;
+	$rows   = $wpdb->get_results( "SELECT ID, post_title, post_content FROM {$wpdb->posts} WHERE post_type = 'player' AND post_status NOT IN ('trash', 'auto-draft') AND post_content LIKE '%eliteprospects.com%'" );
+	$result = array(
+		'filled'    => array(),
+		'already'   => 0,
+		'conflicts' => array(),
+	);
+	foreach ( $rows as $row ) {
+		preg_match_all( '/\[iframe\b[^\]]*eliteprospects\.com[^\]]*[?&](?:amp;)?player=(\d+)/i', $row->post_content, $m );
+		$ids = array_values( array_unique( array_map( 'intval', $m[1] ) ) );
+		if ( ! $ids ) {
+			continue;
+		}
+		if ( get_post_meta( (int) $row->ID, 'ep_id', true ) ) {
+			++$result['already'];
+			continue;
+		}
+		if ( count( $ids ) > 1 ) {
+			$result['conflicts'][ (int) $row->ID ] = $ids;
+			continue;
+		}
+		$result['filled'][ (int) $row->ID ] = $ids[0];
+		if ( $commit ) {
+			update_post_meta( (int) $row->ID, 'ep_id', (string) $ids[0] );
+		}
+	}
+	return $result;
+}
+
+function onf_render_ep_id_fill() {
+	$result = null;
+	$commit = false;
+	if ( isset( $_POST['onf_ep_mode'] ) && check_admin_referer( 'onf_ep_fill' ) ) {
+		$commit = 'run' === $_POST['onf_ep_mode'];
+		$result = onf_fill_ep_ids( $commit );
+	}
+	echo '<hr><h2>' . esc_html__( 'Fill EliteProspects IDs', 'onf-core' ) . '</h2>';
+	echo '<p>' . esc_html__( 'Reads the EliteProspects number from the [iframe] stats embed on each player page and puts it in the player’s EliteProspects ID field (blank fields only). The Player profile block then shows the stats, and the old embed is hidden on that page. Page content is not changed.', 'onf-core' ) . '</p>';
+	echo '<form method="post">';
+	wp_nonce_field( 'onf_ep_fill' );
+	echo '<button class="button" name="onf_ep_mode" value="dry">' . esc_html__( 'Dry run (changes nothing)', 'onf-core' ) . '</button> ';
+	echo '<button class="button button-primary" name="onf_ep_mode" value="run">' . esc_html__( 'Fill IDs', 'onf-core' ) . '</button>';
+	echo '</form>';
+	if ( ! $result ) {
+		return;
+	}
+	echo '<h3>' . esc_html( $commit ? __( 'Done', 'onf-core' ) : __( 'Dry run — nothing was changed', 'onf-core' ) ) . '</h3>';
+	/* translators: 1: filled, 2: already set */
+	echo '<p>' . esc_html( sprintf( __( '%1$d players filled; %2$d already had an ID.', 'onf-core' ), count( $result['filled'] ), $result['already'] ) ) . '</p>';
+	if ( $result['filled'] ) {
+		echo '<details><summary>' . esc_html__( 'Players', 'onf-core' ) . '</summary><ul>';
+		foreach ( $result['filled'] as $player_id => $ep ) {
+			printf( '<li>%s → %d</li>', esc_html( get_the_title( $player_id ) ), (int) $ep );
+		}
+		echo '</ul></details>';
+	}
+	if ( $result['conflicts'] ) {
+		echo '<p>' . esc_html__( 'These pages embed more than one EliteProspects player — fill the ID by hand:', 'onf-core' ) . '</p><ul>';
+		foreach ( $result['conflicts'] as $player_id => $ids ) {
+			printf( '<li><a href="%s">%s</a>: %s</li>', esc_url( get_edit_post_link( $player_id ) ), esc_html( get_the_title( $player_id ) ), esc_html( implode( ', ', $ids ) ) );
+		}
+		echo '</ul>';
 	}
 }

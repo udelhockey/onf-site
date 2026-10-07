@@ -1,0 +1,61 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "onf/donate",
+	"title": "Donate",
+	"icon": "heart",
+	"description": "Donate button or form. On a player, event or fund page it gives to that page; elsewhere the button goes to the Donate page.",
+	"category": "onf",
+	"keywords": [
+		"give",
+		"donation",
+		"stripe"
+	],
+	"textdomain": "onf-core",
+	"attributes": {
+		"mode": {
+			"type": "string",
+			"default": "button",
+			"enum": [
+				"button",
+				"form"
+			]
+		},
+		"label": {
+			"type": "string",
+			"default": ""
+		},
+		"heading": {
+			"type": "string",
+			"default": ""
+		},
+		"player": {
+			"type": "integer",
+			"default": 0
+		},
+		"event": {
+			"type": "integer",
+			"default": 0
+		},
+		"fund": {
+			"type": "integer",
+			"default": 0
+		}
+	},
+	"usesContext": [
+		"postId",
+		"postType"
+	],
+	"supports": {
+		"html": false,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true
+		}
+	},
+	"editorScript": "onf-blocks-editor",
+	"style": "onf-blocks"
+}

@@ -16,6 +16,9 @@ function onf_settings_defaults() {
 		'stripe_live_secret'         => '',
 		'stripe_live_webhook_secret' => '',
 
+		// Website: what player pages use to take donations until cutover ('givewp' = the old form in the content).
+		'player_donations'           => 'givewp',
+
 		// Donate form.
 		'amounts'                    => '25, 50, 100, 250',
 		'min_amount'                 => 5,

@@ -1,6 +1,6 @@
 # ONF website redesign — plan & decisions
 
-_Last updated: 2026-10-04 (evening). Source of truth for the redesign. Update it when decisions land._
+_Last updated: 2026-10-07. Source of truth for the redesign. Update it when decisions land._
 
 ## Goal
 Rebuild opennetfoundation.org as a clean, standards-driven WordPress site, and settle the donations platform before GiveWP's renewal (end of Nov 2026). Work happens on a staging site first.
@@ -31,6 +31,21 @@ Rebuild opennetfoundation.org as a clean, standards-driven WordPress site, and s
 - **Where the work happens (from Phase 2):** Claude Code on Bob's Mac, local session in `~/claude-code/onf-site` — writes, commits and pushes in one place. Repo: `github.com/udelhockey/onf-site` (private; independent of the udelhockey alumni + hub repos).
 - **Login-page logo:** done in `onf-core` (`includes/login-branding.php` + `assets/onf-login-logo.svg`, navy compact lockup, links to home). Remove the My WP Login Logo plugin once `onf-core` is active.
 - **Legacy Ninja Forms** (6, 8, 13, 14, 15, 18) and their Zaps: deleted on staging 2026-10-04. Delete on live at cutover after exporting submissions.
+
+## Phase 2 + donations step 3 decisions (Bob, 2026-10-07)
+- **Theme:** `onf-theme` block theme; `theme.json` holds palette (brand guide), Exo + Roboto (bundled in the theme, no Google Fonts call), type scale, spacing, 4px buttons. Header = compact reversed lockup on navy + navigation + **Donate button**; footer = navy with address, EIN, links, foundation total.
+- **Menu:** no more long "Past events" dropdown. Events · 20 Something Hockey · About · Sponsors · Contact (`/contact-us/`) + **Donate button**. **Events** → `/events/` (event archive): events happening now first, then **past events as a card grid with total raised per event**. Donate button → the existing `/donation/` page, switched to the theme's **Donate page** template (events and funds taking gifts). Not by page address: staging has three old pages called "donate".
+- **"Raised since 2015"** — foundation total counts from the first gift year (2015).
+- **Donor board defaults:** current (latest) event, amounts **on**, messages **on**.
+- **Classic Editor deactivated on staging** (Bob) — pages and templates use the block editor.
+- **Player pages switch** from GiveWP by one setting (Gifts → Settings → Player-page donations: GiveWP / ONF). ONF mode hides `[give_form]` on player pages at display time (content untouched, reversible). GiveWP stays active until cutover so its shortcodes elsewhere keep working.
+- **EliteProspects ID** player field; a migration tool fills it from the existing `[iframe]` embeds.
+- [x] **Built (2026-10-07): `onf-theme` 0.1.0 + `onf-core` 0.8.0** — tested locally (WP 7.1.2, Docker, seeded players/events/funds/gifts): every template, desktop + 375px phone (no sideways scroll), phone menu, all templates/patterns pass block validation, blocks preview in the editor, GiveWP/ONF switch, EP ID fill (re-run safe), all admin pages load.
+  - Blocks (server-rendered, plain-JS editor, no build step): **Donate** (button or form), **Progress / totals** (player-in-event, event, fund, series, or chosen funds added together; current event / chosen event / year / all-time; goal bar; per-fund breakdown; counts), **Donor board** (defaults: current event, amounts + messages on, newest first, 12 then "Show all"), **Leaderboard** (list or photo cards; 0 = whole roster), **Foundation total** (line or big numbers; "since" = first gift year), **Player profile** (photo, number·position·event, facts, events with totals, EP stats, all-time), **Event details** (series·status, dates·venue, Register/Donate), **Event & fund cards** (happening now / past with totals / funds), **Series totals** (years × funds table).
+  - New fields: player `ep_id`; event `registration_url` (Register button while registration is open).
+  - Navy changed to #0C2A3B in receipts, PDF report and login logo. Returning from Stripe lands on the thank-you (`#onf-donate`).
+- [ ] **On staging (Bob):** upload onf-core 0.8.0, then onf-theme 0.1.0 → Live Preview → activate; Pages → "Donate" (/donation/, ID 6) → Template "Donate page"; Tools → ONF Migration → Fill EliteProspects IDs; Events: set status/dates/venues/featured images and **publish** past events (cards only list published events; all but 2026 HMC are drafts); Funds: publish + "Accepting gifts" + excerpt/image; Gifts → Settings → Player-page donations = ONF when ready to test; one Stripe test gift from a player page (check it lands back on the thank-you).
+- [ ] Later: favorite NHL team pick-list + cleanup; on the event page, let a donor pick a player in the form.
 
 ## Current stack (staging)
 Astra theme + Elementor/Elementor Pro (+ Ultimate Addons), Classic Editor plugin active, ACF + CPT UI, GiveWP + add-ons, Ninja Forms + Zapier, Mailchimp for WP, Yoast SEO, Jetpack, SiteGround (SG Security/Optimizer), Duplicator Pro, WP Mail SMTP, Tournament Bracket Manager, My Custom Functions. Full detail: `docs/phase0-audit.md`.
@@ -94,7 +109,7 @@ Astra theme + Elementor/Elementor Pro (+ Ultimate Addons), Classic Editor plugin
 - [ ] At cutover: run Import from GiveWP again on LIVE (after onf-core is installed there) — it imports every live donation; re-runs add only new ones.
 - [ ] Not yet built: online "mail a check" pledge option, weekly/monthly email reports, partial refunds (only full refunds change status), donor "look up my receipts" link.
 - [ ] Review the migrated event names (old categories renamed, e.g. 2018Player → 2018 Face-off for Teen Mental Health, 2019Adult → 2019 Face-off for Juvenile Arthritis, 2022Adult → 2022 Face-off for Teen Mental Health) and add dates/venues. Events are created as closed drafts, dated by their first GiveWP form (often months before the event, e.g. 2021 Chowder Cup shows 2020-04-26) — set real start dates.
-- [x] **Brand blue (Bob, 2026-10-07): follow the brand guide — accent is Ice Blue #6EC1E4** (not logo blue #29ABE2). Navy #0F2A3F stays primary.
+- [x] **Brand blue (Bob, 2026-10-07): follow the brand guide — accent is Ice Blue #6EC1E4** (not logo blue #29ABE2). Navy follows the brand guide too: **#0C2A3B** "Deep Net Navy" (Bob, 2026-10-07; was #0F2A3F in receipts/report/login logo — changed in onf-core 0.8.0).
 - [ ] Wordmark font name — ask original designer or run a rendered wordmark through WhatTheFont/Matcherator. Not blocking.
 - [x] Player fields: keep all existing; add favorite NHL team + sponsor.
 - [x] Name-merge list confirmed (Nick/Nicholas Butler = same person).

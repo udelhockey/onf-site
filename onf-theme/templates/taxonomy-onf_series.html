@@ -1,0 +1,48 @@
+<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+<!-- wp:group {"tagName":"main","align":"full","layout":{"type":"default"}} -->
+<main class="wp-block-group alignfull">
+	<!-- wp:group {"align":"full","className":"is-style-section-navy","style":{"spacing":{"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|60"}}},"layout":{"type":"constrained"}} -->
+	<div class="wp-block-group alignfull is-style-section-navy" style="padding-top:var(--wp--preset--spacing--60);padding-bottom:var(--wp--preset--spacing--60)">
+		<!-- wp:group {"align":"wide","layout":{"type":"default"}} -->
+		<div class="wp-block-group alignwide">
+					<!-- wp:paragraph {"className":"is-style-eyebrow"} -->
+					<p class="is-style-eyebrow">Event series</p>
+					<!-- /wp:paragraph -->
+					<!-- wp:query-title {"type":"archive","showPrefix":false} /-->
+					<!-- wp:term-description /-->
+		</div>
+		<!-- /wp:group -->
+	</div>
+	<!-- /wp:group -->
+
+	<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|60"}}},"layout":{"type":"constrained"}} -->
+	<div class="wp-block-group alignfull" style="padding-top:var(--wp--preset--spacing--60);padding-bottom:var(--wp--preset--spacing--60)">
+		<!-- wp:columns {"align":"wide","style":{"spacing":{"blockGap":{"left":"var:preset|spacing|60","top":"var:preset|spacing|50"}}}} -->
+		<div class="wp-block-columns alignwide">
+			<!-- wp:column {"width":"34%"} -->
+			<div class="wp-block-column" style="flex-basis:34%">
+				<!-- wp:onf/progress {"scope":"all","showCounts":true} /-->
+			</div>
+			<!-- /wp:column -->
+			<!-- wp:column {"width":"66%"} -->
+			<div class="wp-block-column" style="flex-basis:66%">
+				<!-- wp:onf/series-totals /-->
+			</div>
+			<!-- /wp:column -->
+		</div>
+		<!-- /wp:columns -->
+	</div>
+	<!-- /wp:group -->
+
+	<!-- wp:group {"align":"full","className":"is-style-section-cloud","style":{"spacing":{"padding":{"top":"var:preset|spacing|60","bottom":"var:preset|spacing|70"}}},"layout":{"type":"constrained"}} -->
+	<div class="wp-block-group alignfull is-style-section-cloud" style="padding-top:var(--wp--preset--spacing--60);padding-bottom:var(--wp--preset--spacing--70)">
+				<!-- wp:onf/cards {"source":"active","heading":"Happening now","align":"wide"} /-->
+				<!-- wp:onf/cards {"source":"past","heading":"Past years","align":"wide"} /-->
+	</div>
+	<!-- /wp:group -->
+
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->

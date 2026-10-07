@@ -1,0 +1,103 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "onf/progress",
+	"title": "Progress / totals",
+	"icon": "chart-bar",
+	"description": "Money raised, with a goal bar when there's a goal: a player in an event, an event, a fund, a series, or chosen funds added together.",
+	"category": "onf",
+	"keywords": [
+		"total",
+		"goal",
+		"raised",
+		"thermometer"
+	],
+	"textdomain": "onf-core",
+	"attributes": {
+		"source": {
+			"type": "string",
+			"default": "auto",
+			"enum": [
+				"auto",
+				"player",
+				"event",
+				"fund",
+				"series",
+				"funds"
+			]
+		},
+		"scope": {
+			"type": "string",
+			"default": "current",
+			"enum": [
+				"current",
+				"event",
+				"year",
+				"all"
+			]
+		},
+		"player": {
+			"type": "integer",
+			"default": 0
+		},
+		"event": {
+			"type": "integer",
+			"default": 0
+		},
+		"fund": {
+			"type": "integer",
+			"default": 0
+		},
+		"series": {
+			"type": "integer",
+			"default": 0
+		},
+		"funds": {
+			"type": "array",
+			"default": [],
+			"items": {
+				"type": "integer"
+			}
+		},
+		"year": {
+			"type": "integer",
+			"default": 0
+		},
+		"goal": {
+			"type": "number",
+			"default": 0
+		},
+		"showGoal": {
+			"type": "boolean",
+			"default": true
+		},
+		"breakdown": {
+			"type": "boolean",
+			"default": false
+		},
+		"showCounts": {
+			"type": "boolean",
+			"default": false
+		},
+		"label": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"usesContext": [
+		"postId",
+		"postType"
+	],
+	"supports": {
+		"html": false,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true
+		}
+	},
+	"editorScript": "onf-blocks-editor",
+	"style": "onf-blocks"
+}

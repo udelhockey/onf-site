@@ -1,0 +1,42 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "onf/event-details",
+	"title": "Event details",
+	"icon": "calendar-alt",
+	"description": "An event's dates, venue and status, with Donate and Register buttons that follow the status.",
+	"category": "onf",
+	"textdomain": "onf-core",
+	"attributes": {
+		"event": {
+			"type": "integer",
+			"default": 0
+		},
+		"part": {
+			"type": "string",
+			"default": "all",
+			"enum": [
+				"all",
+				"eyebrow",
+				"meta",
+				"buttons"
+			]
+		}
+	},
+	"usesContext": [
+		"postId",
+		"postType"
+	],
+	"supports": {
+		"html": false,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true
+		}
+	},
+	"editorScript": "onf-blocks-editor",
+	"style": "onf-blocks"
+}

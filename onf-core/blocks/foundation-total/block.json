@@ -1,0 +1,40 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "onf/foundation-total",
+	"title": "Foundation total",
+	"icon": "money-alt",
+	"description": "Everything raised: “$X raised since 2015”, or a row of big numbers.",
+	"category": "onf",
+	"textdomain": "onf-core",
+	"attributes": {
+		"layout": {
+			"type": "string",
+			"default": "line",
+			"enum": [
+				"line",
+				"stats"
+			]
+		},
+		"since": {
+			"type": "integer",
+			"default": 0
+		}
+	},
+	"usesContext": [
+		"postId",
+		"postType"
+	],
+	"supports": {
+		"html": false,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true
+		}
+	},
+	"editorScript": "onf-blocks-editor",
+	"style": "onf-blocks"
+}

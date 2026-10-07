@@ -1,0 +1,100 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "onf/donor-board",
+	"title": "Donor board",
+	"icon": "groups",
+	"description": "Supporters and their messages, newest or largest first. Anonymous gifts show as Anonymous.",
+	"category": "onf",
+	"keywords": [
+		"donors",
+		"supporters",
+		"wall"
+	],
+	"textdomain": "onf-core",
+	"attributes": {
+		"source": {
+			"type": "string",
+			"default": "auto",
+			"enum": [
+				"auto",
+				"player",
+				"event",
+				"fund",
+				"series",
+				"funds"
+			]
+		},
+		"scope": {
+			"type": "string",
+			"default": "current",
+			"enum": [
+				"current",
+				"all"
+			]
+		},
+		"player": {
+			"type": "integer",
+			"default": 0
+		},
+		"event": {
+			"type": "integer",
+			"default": 0
+		},
+		"fund": {
+			"type": "integer",
+			"default": 0
+		},
+		"series": {
+			"type": "integer",
+			"default": 0
+		},
+		"funds": {
+			"type": "array",
+			"default": [],
+			"items": {
+				"type": "integer"
+			}
+		},
+		"showAmounts": {
+			"type": "boolean",
+			"default": true
+		},
+		"showMessages": {
+			"type": "boolean",
+			"default": true
+		},
+		"order": {
+			"type": "string",
+			"default": "newest",
+			"enum": [
+				"newest",
+				"largest"
+			]
+		},
+		"limit": {
+			"type": "integer",
+			"default": 12
+		},
+		"heading": {
+			"type": "string",
+			"default": "Supporters"
+		}
+	},
+	"usesContext": [
+		"postId",
+		"postType"
+	],
+	"supports": {
+		"html": false,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true
+		}
+	},
+	"editorScript": "onf-blocks-editor",
+	"style": "onf-blocks"
+}

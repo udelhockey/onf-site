@@ -53,10 +53,6 @@ function onf_setup_series() {
 	);
 }
 
-function onf_whole_dollars( $amount ) {
-	return $amount ? '$' . number_format( (float) $amount ) : '—';
-}
-
 /**
  * All the totals, optionally limited to a range of years. Shared by the Totals screen and the PDF report.
  *
@@ -241,85 +237,6 @@ function onf_render_year_matrix( array $data, array $years, callable $label ) {
 		echo '<td><strong>' . esc_html( onf_whole_dollars( $row['total'] ) ) . '</strong></td></tr>';
 	}
 	echo '</tbody></table></div>';
-}
-
-/**
- * Grid for one series: rows = its yearly events, columns = funds (+ player pages, general),
- * with totals across (each year's campaign) and down (each fund over all years).
- *
- * @return array [ rows => [ event_id => [ year, cells => [ col => total ] ] ], cols => [ col => label ] ]
- */
-function onf_series_grid_data( int $term_id, int $from = 0, int $to = 9999 ) {
-	global $wpdb;
-	$events = get_posts(
-		array(
-			'post_type'      => 'onf_event',
-			'post_status'    => array( 'publish', 'draft', 'future', 'private' ),
-			'posts_per_page' => -1,
-			'fields'         => 'ids',
-			'tax_query'      => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
-				array(
-					'taxonomy' => 'onf_series',
-					'terms'    => $term_id,
-				),
-			),
-		)
-	);
-	if ( ! $events ) {
-		return array(
-			'rows' => array(),
-			'cols' => array(),
-		);
-	}
-	$events = array_values( array_filter( $events, static fn( $id ) => onf_event_year( $id ) >= $from && onf_event_year( $id ) <= $to ) );
-	if ( ! $events ) {
-		return array(
-			'rows' => array(),
-			'cols' => array(),
-		);
-	}
-	$ids  = implode( ',', array_map( 'intval', $events ) );
-	$sums = $wpdb->get_results(
-		'SELECT event_id, fund_id, (player_id > 0) AS has_player, SUM(amount) AS total FROM ' . onf_gifts_table() . "
-		WHERE status = 'completed' AND type = 'donation' AND event_id IN ($ids)
-		GROUP BY event_id, fund_id, has_player" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- integers.
-	);
-
-	$rows = array();
-	foreach ( $events as $event_id ) {
-		$rows[ $event_id ] = array(
-			'year'  => onf_event_year( $event_id ),
-			'title' => get_the_title( $event_id ),
-			'cells' => array(),
-		);
-	}
-	$cols = array();
-	foreach ( $sums as $s ) {
-		if ( $s->fund_id ) {
-			$col          = 'f' . $s->fund_id;
-			$cols[ $col ] = get_the_title( $s->fund_id );
-		} elseif ( $s->has_player ) {
-			$col          = 'players';
-			$cols[ $col ] = __( 'Player pages', 'onf-core' );
-		} else {
-			$col          = 'general';
-			$cols[ $col ] = __( 'General', 'onf-core' );
-		}
-		$rows[ $s->event_id ]['cells'][ $col ] = ( $rows[ $s->event_id ]['cells'][ $col ] ?? 0 ) + (float) $s->total;
-	}
-	// Funds A–Z, then player pages, then general.
-	uksort(
-		$cols,
-		static function ( $a, $b ) use ( $cols ) {
-			$rank = static fn( $k ) => 'players' === $k ? 1 : ( 'general' === $k ? 2 : 0 );
-			return $rank( $a ) <=> $rank( $b ) ?: strcasecmp( $cols[ $a ], $cols[ $b ] );
-		}
-	);
-	uasort( $rows, static fn( $a, $b ) => $a['year'] <=> $b['year'] ?: strcmp( $a['title'], $b['title'] ) );
-	return array(
-		'rows' => $rows,
-		'cols' => $cols,
-	);
 }
 
 function onf_render_series_grid( int $term_id ) {

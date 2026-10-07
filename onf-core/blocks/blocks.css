@@ -1,0 +1,707 @@
+/*
+ * ONF blocks. Colors, fonts and spacing come from the theme's presets (onf-theme/theme.json);
+ * the fallbacks are the same brand values, for any other theme.
+ */
+
+.onf-progress,
+.onf-donors,
+.onf-leaderboard,
+.onf-cards,
+.onf-donate-block,
+.onf-player-events,
+.onf-series-totals {
+	--onf-navy: var(--wp--preset--color--navy, #0c2a3b);
+	--onf-ice: var(--wp--preset--color--ice, #6ec1e4);
+	--onf-rink: var(--wp--preset--color--rink, #0170b9);
+	--onf-line: var(--wp--preset--color--line, #e5e5e5);
+	--onf-cloud: var(--wp--preset--color--cloud, #f2f2f2);
+	--onf-slate: var(--wp--preset--color--slate, #54595f);
+	--onf-radius: var(--wp--custom--radius--card, 10px);
+}
+
+.onf-block-note {
+	border: 1px dashed currentColor;
+	border-radius: 6px;
+	font-size: 0.875rem;
+	opacity: 0.75;
+	padding: 0.75rem 1rem;
+}
+
+.onf-eyebrow {
+	color: var(--wp--preset--color--rink, #0170b9);
+	font-size: var(--wp--preset--font-size--x-small, 0.8125rem);
+	font-weight: 700;
+	letter-spacing: 1.5px;
+	line-height: 1.4;
+	margin: 0;
+	text-transform: uppercase;
+}
+.is-style-section-navy .onf-eyebrow {
+	color: var(--wp--preset--color--ice, #6ec1e4);
+}
+
+/* Goal bar: native <progress>, Ice Blue fill. Track follows the text color, so it works on navy too. */
+.onf-bar {
+	appearance: none;
+	background: color-mix(in srgb, currentColor 14%, transparent);
+	border: 0;
+	border-radius: 999px;
+	display: block;
+	height: 0.625rem;
+	overflow: hidden;
+	width: 100%;
+}
+.onf-bar::-webkit-progress-bar {
+	background: color-mix(in srgb, currentColor 14%, transparent);
+	border-radius: 999px;
+}
+.onf-bar::-webkit-progress-value {
+	background: var(--wp--preset--color--ice, #6ec1e4);
+	border-radius: 999px;
+}
+.onf-bar::-moz-progress-bar {
+	background: var(--wp--preset--color--ice, #6ec1e4);
+	border-radius: 999px;
+}
+
+/* Progress / totals */
+.onf-progress > * {
+	margin: 0;
+}
+.onf-progress > * + * {
+	margin-top: 0.5rem;
+}
+.onf-progress__label {
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	opacity: 0.85;
+}
+.onf-progress__amount strong {
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-size: var(--wp--preset--font-size--stat, 2.5rem);
+	font-weight: 800;
+	line-height: 1.1;
+}
+.onf-progress__amount span {
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	opacity: 0.85;
+	white-space: nowrap;
+}
+.onf-progress__counts {
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	opacity: 0.85;
+}
+.onf-progress__breakdown {
+	border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	list-style: none;
+	padding: 0.5rem 0 0;
+}
+.onf-progress__breakdown li {
+	display: flex;
+	gap: 1rem;
+	justify-content: space-between;
+	padding: 0.25rem 0;
+}
+.onf-progress__breakdown li span:last-child {
+	font-weight: 700;
+}
+
+/* Foundation total */
+.onf-total__line {
+	margin: 0;
+}
+.onf-total__line strong {
+	color: inherit;
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-weight: 800;
+}
+.onf-stats {
+	display: grid;
+	gap: var(--wp--preset--spacing--40, 1.5rem);
+	grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+	margin: 0;
+}
+.onf-stat {
+	display: flex;
+	flex-direction: column-reverse;
+}
+.onf-stat dd {
+	color: var(--wp--preset--color--rink, #0170b9);
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-size: var(--wp--preset--font-size--stat, 2.5rem);
+	font-weight: 800;
+	line-height: 1.1;
+	margin: 0;
+}
+.is-style-section-navy .onf-stat dd {
+	color: var(--wp--preset--color--ice, #6ec1e4);
+}
+.onf-stat dt {
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	opacity: 0.85;
+}
+
+/* Donate block + form */
+.onf-donate-block {
+	background: var(--wp--preset--color--white, #fff);
+	border: 1px solid var(--onf-line);
+	border-radius: var(--onf-radius);
+	color: var(--wp--preset--color--ink, #111418);
+	padding: var(--wp--preset--spacing--40, 1.5rem);
+	scroll-margin-top: 1rem;
+}
+.onf-donate-block__heading {
+	margin: 0 0 0.25rem;
+}
+.onf-donate-block__for {
+	color: var(--onf-slate);
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	margin: 0 0 1rem;
+}
+.onf-donate {
+	scroll-margin-top: 1rem;
+}
+.onf-donate__form > * + * {
+	margin-top: 1rem;
+}
+.onf-donate__form p {
+	margin: 0;
+}
+.onf-donate__amounts {
+	border: 0;
+	display: grid;
+	gap: 0.5rem;
+	grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+	margin: 0;
+	padding: 0;
+}
+.onf-donate__amounts legend {
+	font-weight: 700;
+	margin-bottom: 0.5rem;
+	padding: 0;
+}
+.onf-donate__amount {
+	cursor: pointer;
+	position: relative;
+}
+.onf-donate__amount input {
+	opacity: 0;
+	position: absolute;
+}
+.onf-donate__amount span {
+	border: 2px solid var(--onf-line);
+	border-radius: var(--wp--custom--radius--button, 4px);
+	display: block;
+	font-weight: 700;
+	padding: 0.625rem 0.25rem;
+	text-align: center;
+}
+.onf-donate__amount input:checked + span {
+	background: var(--onf-ice);
+	border-color: var(--onf-ice);
+	color: var(--wp--custom--button-text-on-ice, #06222e);
+}
+.onf-donate__amount input:focus-visible + span {
+	outline: 2px solid var(--onf-rink);
+	outline-offset: 2px;
+}
+/* "Other amount" box only when Other is picked (browsers without :has() always show it). */
+.onf-donate__other,
+.onf-donate__amounts > input[type="number"] {
+	grid-column: 1 / -1;
+}
+@supports selector(:has(*)) {
+	.onf-donate__amounts:not(:has(.onf-donate__amount--other input:checked)) .onf-donate__other,
+	.onf-donate__amounts:not(:has(.onf-donate__amount--other input:checked)) > input[type="number"] {
+		display: none;
+	}
+}
+.onf-donate__fields {
+	display: grid;
+	gap: 0.75rem 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+.onf-donate__fields p:has(textarea),
+.onf-donate__fields p:has([name="company"]) {
+	grid-column: 1 / -1;
+}
+.onf-donate__fields label,
+.onf-donate__other {
+	display: block;
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	font-weight: 500;
+	margin-bottom: 0.25rem;
+}
+.onf-donate input[type="text"],
+.onf-donate input[type="email"],
+.onf-donate input[type="number"],
+.onf-donate textarea {
+	background: var(--wp--preset--color--white, #fff);
+	border: 1px solid #b8bec4;
+	border-radius: var(--wp--custom--radius--button, 4px);
+	box-sizing: border-box;
+	font: inherit;
+	padding: 0.625rem 0.75rem;
+	width: 100%;
+}
+.onf-donate input:focus,
+.onf-donate textarea:focus {
+	border-color: var(--onf-rink);
+	outline: 2px solid color-mix(in srgb, var(--onf-rink) 35%, transparent);
+}
+.onf-donate__check {
+	align-items: flex-start;
+	display: flex;
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	gap: 0.5rem;
+}
+.onf-donate__check input {
+	flex: none;
+	height: 1.125rem;
+	margin-top: 0.15rem;
+	width: 1.125rem;
+}
+.onf-donate__submit {
+	width: 100%;
+}
+.onf-donate__small {
+	color: var(--onf-slate);
+	font-size: var(--wp--preset--font-size--x-small, 0.8125rem);
+}
+.onf-donate__notice,
+.onf-donate__error,
+.onf-donate__thanks {
+	background: var(--wp--preset--color--ice-tint, #e1f1f8);
+	border-radius: 6px;
+	padding: 0.75rem 1rem;
+}
+.onf-donate__error {
+	background: #fbeaea;
+	color: #8a2a2a;
+}
+.onf-donate__thanks h2 {
+	margin-top: 0;
+}
+
+/* Donor board */
+.onf-donors__heading {
+	align-items: baseline;
+	display: flex;
+	gap: 0.5rem;
+	margin: 0 0 0.25rem;
+}
+.onf-donors__count {
+	background: var(--wp--preset--color--ice-tint, #e1f1f8);
+	border-radius: 999px;
+	color: var(--onf-navy);
+	font-family: var(--wp--preset--font-family--body, inherit);
+	font-size: var(--wp--preset--font-size--x-small, 0.8125rem);
+	font-weight: 700;
+	padding: 0.125rem 0.625rem;
+}
+.onf-donors__scope {
+	color: var(--onf-slate);
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	margin: 0 0 1rem;
+}
+.onf-donors__list {
+	display: grid;
+	gap: 0.75rem;
+	grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.onf-donor {
+	background: var(--wp--preset--color--white, #fff);
+	border: 1px solid var(--onf-line);
+	border-radius: var(--onf-radius);
+	color: var(--wp--preset--color--ink, #111418);
+	padding: 0.875rem 1rem;
+}
+.onf-donor__top {
+	align-items: baseline;
+	display: flex;
+	gap: 0.75rem;
+	justify-content: space-between;
+}
+.onf-donor__name {
+	font-weight: 700;
+}
+.onf-donor__amount {
+	color: var(--onf-rink);
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-weight: 800;
+	white-space: nowrap;
+}
+.onf-donor__message {
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	margin: 0.375rem 0 0;
+}
+.onf-donor__meta {
+	color: var(--onf-slate);
+	font-size: var(--wp--preset--font-size--x-small, 0.8125rem);
+	margin: 0.375rem 0 0;
+}
+.onf-donors__more {
+	margin-top: 0.75rem;
+}
+.onf-donors__more summary {
+	color: var(--onf-rink);
+	cursor: pointer;
+	font-weight: 700;
+	margin-bottom: 0.75rem;
+}
+.onf-donors__empty {
+	color: var(--onf-slate);
+}
+
+/* Leaderboard */
+.onf-leaderboard__heading {
+	margin: 0 0 0.25rem;
+}
+.onf-leaderboard__event {
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	margin: 0 0 1rem;
+}
+.onf-leaderboard__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.onf-leader {
+	align-items: center;
+	border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+	display: grid;
+	gap: 0.75rem;
+	grid-template-columns: 1.75rem 2.75rem minmax(0, 1fr) auto;
+	padding: 0.625rem 0;
+}
+.onf-leader__rank {
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-weight: 800;
+	opacity: 0.6;
+	text-align: center;
+}
+.onf-leader__img {
+	aspect-ratio: 1;
+	border-radius: 50%;
+	height: auto;
+	object-fit: cover;
+	width: 100%;
+}
+.onf-leader__img--initials {
+	align-items: center;
+	background: var(--onf-navy);
+	color: var(--onf-ice);
+	display: flex;
+	font-size: 0.875rem;
+	font-weight: 700;
+	justify-content: center;
+}
+.onf-leader__body {
+	display: grid;
+	gap: 0.375rem;
+	min-width: 0;
+}
+.onf-leader__name {
+	font-weight: 700;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+a.onf-leader__name {
+	color: inherit;
+	text-decoration: none;
+}
+a.onf-leader__name:hover {
+	text-decoration: underline;
+}
+.onf-leader .onf-bar {
+	height: 0.375rem;
+}
+.onf-leader__amount {
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-weight: 800;
+}
+.onf-leaderboard__list.is-grid {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+}
+.onf-leaderboard__list.is-grid .onf-leader {
+	background: var(--wp--preset--color--white, #fff);
+	border: 1px solid var(--onf-line);
+	border-radius: var(--onf-radius);
+	color: var(--wp--preset--color--ink, #111418);
+	grid-template-columns: 1fr;
+	padding: 0.75rem;
+	position: relative;
+	text-align: center;
+}
+.onf-leaderboard__list.is-grid .onf-leader__rank {
+	background: var(--onf-ice);
+	border-radius: 999px;
+	color: var(--wp--custom--button-text-on-ice, #06222e);
+	font-size: 0.8125rem;
+	left: 0.5rem;
+	min-width: 1.75rem;
+	opacity: 1;
+	padding: 0.125rem 0.375rem;
+	position: absolute;
+	top: 0.5rem;
+}
+.onf-leaderboard__list.is-grid .onf-leader__img {
+	border-radius: 6px;
+	width: 100%;
+}
+.onf-leaderboard__all {
+	margin: 1rem 0 0;
+}
+
+/* Player */
+.onf-player-photo__img {
+	aspect-ratio: 4 / 5;
+	border-radius: var(--wp--custom--radius--card, 10px);
+	display: block;
+	height: auto;
+	object-fit: cover;
+	width: 100%;
+}
+.onf-player-photo__placeholder {
+	align-items: center;
+	aspect-ratio: 4 / 5;
+	background: color-mix(in srgb, currentColor 8%, transparent);
+	border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+	border-radius: var(--wp--custom--radius--card, 10px);
+	display: flex;
+	justify-content: center;
+}
+.onf-player-photo__placeholder span {
+	color: var(--wp--preset--color--ice, #6ec1e4);
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-size: clamp(3rem, 10vw, 6rem);
+	font-weight: 800;
+}
+.onf-facts {
+	display: grid;
+	gap: 0.75rem 1.5rem;
+	grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+	margin: 0;
+}
+.onf-fact dt {
+	font-size: var(--wp--preset--font-size--x-small, 0.8125rem);
+	font-weight: 700;
+	letter-spacing: 1px;
+	opacity: 0.75;
+	text-transform: uppercase;
+}
+.onf-fact dd {
+	font-weight: 500;
+	margin: 0;
+}
+.onf-alltime {
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+}
+.onf-alltime strong {
+	font-family: var(--wp--preset--font-family--heading, inherit);
+}
+.onf-player-events__heading,
+.onf-player-stats__heading {
+	margin: 0 0 0.75rem;
+}
+.onf-player-events__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.onf-player-events__list li,
+.onf-player-events__total {
+	border-bottom: 1px solid var(--onf-line);
+	display: flex;
+	gap: 1rem;
+	justify-content: space-between;
+	margin: 0;
+	padding: 0.625rem 0;
+}
+.onf-player-events__raised {
+	font-weight: 700;
+	white-space: nowrap;
+}
+.onf-player-events__total {
+	border-bottom: 0;
+	font-weight: 700;
+}
+.onf-player-events__total strong {
+	color: var(--onf-rink);
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-size: 1.25rem;
+}
+.onf-embed--stats {
+	border: 1px solid var(--wp--preset--color--line, #e5e5e5);
+	border-radius: 6px;
+	height: 320px;
+	width: 100%;
+}
+
+/* Event details */
+.onf-event-details > * {
+	margin: 0;
+}
+.onf-event-details > * + * {
+	margin-top: 0.75rem;
+}
+.onf-event-meta {
+	display: flex;
+	flex-wrap: wrap;
+	font-size: 1.125rem;
+	gap: 0.25rem 1.25rem;
+}
+.onf-event-meta__venue::before {
+	content: "@ ";
+	opacity: 0.7;
+}
+.onf-event-buttons {
+	margin-top: 1.25rem !important;
+}
+
+/* Event & fund cards */
+.onf-cards__heading {
+	margin: 0 0 1rem;
+}
+.onf-cards__list {
+	display: grid;
+	gap: var(--wp--preset--spacing--40, 1.5rem);
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.onf-card {
+	background: var(--wp--preset--color--white, #fff);
+	border: 1px solid var(--onf-line);
+	border-radius: var(--onf-radius);
+	color: var(--wp--preset--color--ink, #111418);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+.onf-card__media {
+	display: block;
+}
+.onf-card__media img {
+	aspect-ratio: 16 / 9;
+	display: block;
+	height: auto;
+	object-fit: cover;
+	width: 100%;
+}
+.onf-card__placeholder {
+	align-items: center;
+	aspect-ratio: 16 / 9;
+	background: var(--onf-navy);
+	display: flex;
+	justify-content: center;
+}
+.onf-card__placeholder img {
+	aspect-ratio: auto;
+	opacity: 0.9;
+	width: 38%;
+}
+.onf-card__body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 1rem 1.125rem 1.25rem;
+}
+.onf-card__body > * {
+	margin: 0;
+}
+.onf-card__eyebrow {
+	color: var(--onf-rink);
+	font-size: var(--wp--preset--font-size--x-small, 0.8125rem);
+	font-weight: 700;
+	letter-spacing: 1.5px;
+	text-transform: uppercase;
+}
+.onf-card__title {
+	font-size: 1.25rem;
+	line-height: 1.2;
+}
+.onf-card__title a {
+	color: var(--onf-navy);
+	text-decoration: none;
+}
+.onf-card__title a:hover {
+	text-decoration: underline;
+}
+.onf-card__meta {
+	color: var(--onf-slate);
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+}
+.onf-card__raised strong {
+	color: var(--onf-navy);
+	font-family: var(--wp--preset--font-family--heading, inherit);
+	font-size: 1.375rem;
+	font-weight: 800;
+}
+.onf-card__raised span {
+	color: var(--onf-slate);
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+}
+.onf-card__cta {
+	margin-top: auto !important;
+	padding-top: 0.5rem;
+}
+.onf-card__button {
+	background: var(--onf-ice);
+	border-radius: var(--wp--custom--radius--button, 4px);
+	color: var(--wp--custom--button-text-on-ice, #06222e);
+	display: inline-block;
+	font-size: 0.9375rem;
+	font-weight: 700;
+	padding: 0.5rem 1.25rem;
+	text-decoration: none;
+}
+.onf-card__button:hover {
+	background: var(--onf-rink);
+	color: #fff;
+}
+
+/* Series totals */
+.onf-series-totals {
+	overflow-x: auto;
+}
+.onf-series-table {
+	border-collapse: collapse;
+	font-size: var(--wp--preset--font-size--small, 0.9375rem);
+	min-width: 100%;
+}
+.onf-series-table th,
+.onf-series-table td {
+	border-bottom: 1px solid var(--onf-line);
+	padding: 0.5rem 0.75rem;
+	text-align: right;
+	white-space: nowrap;
+}
+.onf-series-table th:first-child {
+	text-align: left;
+}
+.onf-series-table thead th {
+	background: var(--onf-navy);
+	color: #fff;
+	font-weight: 600;
+}
+.onf-series-table tfoot td,
+.onf-series-table tfoot th {
+	border-bottom: 0;
+	font-weight: 700;
+}
+
+/* Phones: columns stack, so keep the player photo from filling the whole screen. */
+@media (max-width: 781px) {
+	.onf-player-photo {
+		max-width: 15rem;
+	}
+}

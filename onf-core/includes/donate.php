@@ -73,6 +73,7 @@ function onf_donate_messages() {
 function onf_donate_shortcode( $atts ) {
 	static $instance = 0;
 	++$instance;
+	wp_enqueue_style( 'onf-blocks' ); // Form styles; also when used as a shortcode in old content.
 	$atts = shortcode_atts(
 		array(
 			'player' => 0,

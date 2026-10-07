@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const ONF_REPORT_NAVY = array( 0.059, 0.165, 0.247 ); // #0F2A3F
+const ONF_REPORT_NAVY = array( 0.047, 0.165, 0.231 ); // #0C2A3B
 const ONF_REPORT_GRAY = array( 0.42, 0.45, 0.5 );
 const ONF_REPORT_INK  = array( 0.12, 0.12, 0.12 );
 

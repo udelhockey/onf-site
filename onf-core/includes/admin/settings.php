@@ -66,6 +66,16 @@ function onf_render_settings_page() {
 				</td></tr>
 			</table>
 
+			<h2><?php esc_html_e( 'Website', 'onf-core' ); ?></h2>
+			<table class="form-table" role="presentation">
+				<tr><th><label for="onf-player-donations"><?php esc_html_e( 'Player-page donations', 'onf-core' ); ?></label></th>
+					<td><select id="onf-player-donations" name="player_donations">
+						<option value="givewp" <?php selected( $s['player_donations'], 'givewp' ); ?>><?php esc_html_e( 'GiveWP (the old form on each player page)', 'onf-core' ); ?></option>
+						<option value="onf" <?php selected( $s['player_donations'], 'onf' ); ?>><?php esc_html_e( 'ONF (our Donate block; old GiveWP forms hidden on player pages)', 'onf-core' ); ?></option>
+					</select>
+					<p class="description"><?php esc_html_e( 'Switching hides or shows the old [give_form] on player pages only; the page content itself is not changed, so you can switch back at any time.', 'onf-core' ); ?></p></td></tr>
+			</table>
+
 			<h2><?php esc_html_e( 'Donate form', 'onf-core' ); ?></h2>
 			<table class="form-table" role="presentation">
 				<tr><th><label for="onf-amounts"><?php esc_html_e( 'Suggested amounts ($)', 'onf-core' ); ?></label></th>
@@ -217,6 +227,7 @@ add_action(
 		foreach ( array( 'org_address', 'admin_emails', 'receipt_body', 'player_body', 'admin_body' ) as $key ) {
 			$new[ $key ] = sanitize_textarea_field( $in[ $key ] ?? '' );
 		}
+		$new['player_donations'] = 'onf' === ( $in['player_donations'] ?? '' ) ? 'onf' : 'givewp';
 		$new['notify_admins']   = empty( $in['notify_admins'] ) ? 0 : 1;
 		$new['notify_players']  = empty( $in['notify_players'] ) ? 0 : 1;
 

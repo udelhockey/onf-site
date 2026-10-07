@@ -27,6 +27,7 @@ function onf_field_groups() {
 					'last_team'         => array( __( 'Last team', 'onf-core' ), 'text' ),
 					'favorite_nhl_team' => array( __( 'Favorite NHL team', 'onf-core' ), 'text' ),
 					'sponsor'           => array( __( 'Sponsor / company', 'onf-core' ), 'text' ),
+					'ep_id'             => array( __( 'EliteProspects ID (the number in their EliteProspects address)', 'onf-core' ), 'number' ),
 				),
 			),
 			'onf_player_private' => array(
@@ -51,6 +52,7 @@ function onf_field_groups() {
 					'venue'       => array( __( 'Venue', 'onf-core' ), 'text' ),
 					'goal'        => array( __( 'Event goal ($)', 'onf-core' ), 'number' ),
 					'player_goal' => array( __( 'Default player goal ($)', 'onf-core' ), 'number' ),
+					'registration_url' => array( __( 'Registration link (shows a Register button while registration is open)', 'onf-core' ), 'url' ),
 				),
 			),
 		),
@@ -188,6 +190,8 @@ function onf_sanitize_field( $value, array $field ) {
 			return sanitize_textarea_field( $value );
 		case 'email':
 			return sanitize_email( $value );
+		case 'url':
+			return esc_url_raw( trim( $value ), array( 'http', 'https' ) );
 		case 'number':
 			return is_numeric( $value ) ? (string) ( 0 + $value ) : '';
 		case 'date':

@@ -75,8 +75,8 @@ function onf_stripe_create_checkout( array $d ) {
 		'submit_type'         => 'donate',
 		'customer_email'      => $d['email'],
 		'customer_creation'   => 'if_required',
-		'success_url'         => add_query_arg( 'onf_session', '{CHECKOUT_SESSION_ID}', $d['return_url'] ),
-		'cancel_url'          => add_query_arg( 'onf_cancelled', '1', $d['return_url'] ),
+		'success_url'         => add_query_arg( 'onf_session', '{CHECKOUT_SESSION_ID}', $d['return_url'] ) . '#onf-donate', // Land on the thank-you, not the top of the page.
+		'cancel_url'          => add_query_arg( 'onf_cancelled', '1', $d['return_url'] ) . '#onf-donate',
 		'line_items'          => array(
 			array(
 				'quantity'   => 1,

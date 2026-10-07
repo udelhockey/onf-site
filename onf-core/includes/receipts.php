@@ -75,7 +75,7 @@ function onf_email_html( $text_html ) {
 	$name = esc_attr( onf_setting( 'org_name' ) );
 	return '<!doctype html><html><body style="margin:0;padding:24px;background:#f4f6f8;font-family:Helvetica,Arial,sans-serif;color:#1f2933">'
 		. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">'
-		. '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-top:4px solid #0F2A3F">'
+		. '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-top:4px solid #0C2A3B">'
 		. '<tr><td style="padding:24px 32px 8px"><img src="' . $logo . '" alt="' . $name . '" width="300" style="display:block;width:300px;max-width:100%;height:auto"></td></tr>'
 		. '<tr><td style="padding:8px 32px 32px;font-size:16px;line-height:1.5">' . nl2br( $text_html ) . '</td></tr>'
 		. '</table></td></tr></table></body></html>';
@@ -198,7 +198,7 @@ function onf_send_gift_emails( int $gift_id, array $types = array( 'receipt', 'p
  */
 function onf_receipt_pdf( $gift ) {
 	$tags  = onf_gift_tags( $gift );
-	$navy  = array( 0.059, 0.165, 0.247 ); // #0F2A3F
+	$navy  = array( 0.047, 0.165, 0.231 ); // #0C2A3B
 	$gray  = array( 0.42, 0.45, 0.5 );
 	$pdf   = new ONF_PDF();
 	$left  = 72;

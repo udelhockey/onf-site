@@ -1,0 +1,76 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/theme.json",
+	"version": 3,
+	"title": "Navy",
+	"slug": "section-navy",
+	"blockTypes": [
+		"core/group",
+		"core/columns",
+		"core/column",
+		"core/cover"
+	],
+	"styles": {
+		"color": {
+			"background": "var(--wp--preset--color--navy)",
+			"text": "var(--wp--preset--color--white)"
+		},
+		"elements": {
+			"heading": {
+				"color": {
+					"text": "var(--wp--preset--color--white)"
+				}
+			},
+			"link": {
+				"color": {
+					"text": "var(--wp--preset--color--ice)"
+				},
+				":hover": {
+					"color": {
+						"text": "var(--wp--preset--color--white)"
+					}
+				}
+			},
+			"button": {
+				"color": {
+					"background": "var(--wp--preset--color--ice)",
+					"text": "var(--wp--custom--button-text-on-ice)"
+				},
+				":hover": {
+					"color": {
+						"background": "var(--wp--preset--color--white)",
+						"text": "var(--wp--preset--color--navy)"
+					},
+					"border": {
+						"color": "var(--wp--preset--color--white)"
+					}
+				}
+			},
+			"caption": {
+				"color": {
+					"text": "var(--wp--preset--color--on-navy)"
+				}
+			}
+		},
+		"blocks": {
+			"core/paragraph": {
+				"elements": {
+					"link": {
+						"color": {
+							"text": "var(--wp--preset--color--ice)"
+						}
+					}
+				}
+			},
+			"core/post-date": {
+				"color": {
+					"text": "var(--wp--preset--color--on-navy)"
+				}
+			},
+			"core/separator": {
+				"color": {
+					"text": "rgba(255,255,255,0.18)"
+				}
+			}
+		}
+	}
+}

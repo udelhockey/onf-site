@@ -1,0 +1,56 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "onf/cards",
+	"title": "Event & fund cards",
+	"icon": "grid-view",
+	"description": "Cards for events happening now, past events with what each raised, or funds taking gifts.",
+	"category": "onf",
+	"keywords": [
+		"events",
+		"past",
+		"funds",
+		"grid"
+	],
+	"textdomain": "onf-core",
+	"attributes": {
+		"source": {
+			"type": "string",
+			"default": "active",
+			"enum": [
+				"active",
+				"past",
+				"funds"
+			]
+		},
+		"series": {
+			"type": "integer",
+			"default": 0
+		},
+		"limit": {
+			"type": "integer",
+			"default": 0
+		},
+		"heading": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"usesContext": [
+		"postId",
+		"postType"
+	],
+	"supports": {
+		"html": false,
+		"align": [
+			"wide",
+			"full"
+		],
+		"spacing": {
+			"margin": true
+		},
+		"anchor": true
+	},
+	"editorScript": "onf-blocks-editor",
+	"style": "onf-blocks"
+}
