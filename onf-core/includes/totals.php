@@ -301,7 +301,22 @@ function onf_player_focus_event( int $player_id ) {
 	if ( $current ) {
 		return $current;
 	}
-	$entries = onf_get_player_entries( $player_id ); // Newest first.
+	// No open event: the event of their most recent gift (old events often have no dates, so the
+	// event's own date can't say which came last) …
+	$latest = (int) onf_totals_cache(
+		'player_last_event',
+		array( $player_id ),
+		static function () use ( $player_id ) {
+			global $wpdb;
+			return (int) $wpdb->get_var( 'SELECT event_id FROM ' . onf_gifts_table() . ' WHERE ' . onf_totals_where( array( 'player_id' => $player_id ) ) . ' AND event_id > 0 ORDER BY gift_date DESC, id DESC LIMIT 1' ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		}
+	);
+	if ( $latest ) {
+		return $latest;
+	}
+	// … else their newest event by year.
+	$entries = onf_get_player_entries( $player_id );
+	usort( $entries, static fn( $a, $b ) => onf_event_year( (int) $b->event_id ) <=> onf_event_year( (int) $a->event_id ) );
 	return $entries ? (int) $entries[0]->event_id : 0;
 }
 
