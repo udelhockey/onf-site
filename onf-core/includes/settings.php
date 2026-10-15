@@ -19,6 +19,10 @@ function onf_settings_defaults() {
 		// Website: what player pages use to take donations until cutover ('givewp' = the old form in the content).
 		'player_donations'           => 'givewp',
 
+		// Registration (Ninja Forms): the form that adds players to events (0 = off) and who hears about each one.
+		'reg_form_id'                => 0,
+		'reg_notify'                 => "bob@opennetfoundation.org\nrroux@infosolutionsllc.com",
+
 		// Donate form.
 		'amounts'                    => '25, 50, 100, 250',
 		'min_amount'                 => 5,

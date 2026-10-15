@@ -365,6 +365,16 @@ add_action(
 			);
 		$query->set( 'meta_query', $meta );
 
+		// New players created by a registration, still drafts: the "From registration — needs review" view.
+		if ( isset( $_GET['onf_review'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- list view switch.
+			$meta[] = array(
+				'key'     => '_onf_from_registration',
+				'compare' => 'EXISTS',
+			);
+			$query->set( 'meta_query', $meta );
+			$query->set( 'post_status', 'draft' );
+		}
+
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- list filter.
 		$before = sanitize_key( $_GET['onf_last_before'] ?? '' );
 		if ( '' !== $before ) {
@@ -380,10 +390,21 @@ add_filter(
 		global $wpdb;
 		$archived = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} m JOIN {$wpdb->posts} p ON p.ID = m.post_id AND p.post_type = 'player' AND p.post_status <> 'trash' WHERE m.meta_key = '_onf_archived' AND m.meta_value = '1'" );
 		$mode     = onf_players_list_mode();
-		if ( 'archived' === $mode ) {
+		$review   = isset( $_GET['onf_review'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- list view switch.
+		if ( 'archived' === $mode || $review ) {
 			foreach ( $views as $key => $html ) {
 				$views[ $key ] = str_replace( 'class="current"', '', $html );
 			}
+		}
+		$to_review = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->postmeta} m JOIN {$wpdb->posts} p ON p.ID = m.post_id AND p.post_type = 'player' AND p.post_status = 'draft' WHERE m.meta_key = '_onf_from_registration'" );
+		if ( $to_review || $review ) {
+			$views['onf_review'] = sprintf(
+				'<a href="%s"%s>%s <span class="count">(%d)</span></a>',
+				esc_url( admin_url( 'edit.php?post_type=player&onf_review=1' ) ),
+				$review ? ' class="current" aria-current="page"' : '',
+				esc_html__( 'From registration — needs review', 'onf-core' ),
+				$to_review
+			);
 		}
 		$views['onf_archived'] = sprintf(
 			'<a href="%s"%s>%s <span class="count">(%d)</span></a>',

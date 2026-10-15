@@ -76,6 +76,27 @@ function onf_render_settings_page() {
 					<p class="description"><?php esc_html_e( 'Switching hides or shows the old [give_form] on player pages only; the page content itself is not changed, so you can switch back at any time.', 'onf-core' ); ?></p></td></tr>
 			</table>
 
+			<h2><?php esc_html_e( 'Registration', 'onf-core' ); ?></h2>
+			<table class="form-table" role="presentation">
+				<tr><th><label for="onf-reg-form"><?php esc_html_e( 'Registration form (Ninja Forms)', 'onf-core' ); ?></label></th>
+					<td>
+						<?php $forms = onf_ninja_forms_list(); ?>
+						<select id="onf-reg-form" name="reg_form_id">
+							<option value="0"><?php esc_html_e( '— Off —', 'onf-core' ); ?></option>
+							<?php foreach ( $forms as $id => $title ) : ?>
+								<option value="<?php echo (int) $id; ?>" <?php selected( (int) $s['reg_form_id'], (int) $id ); ?>><?php echo esc_html( $title . ' (#' . $id . ')' ); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<p class="description"><?php esc_html_e( 'Each submission adds the person to the event whose Registration link is the page the form is on (or to the only event open for registration), matching an existing player by email or name, or creating a draft player for you to review. Ninja Forms’ own emails, saved entries and Zapier keep working as before.', 'onf-core' ); ?></p>
+						<?php if ( ! $forms ) : ?>
+							<p class="description"><?php esc_html_e( 'Ninja Forms is not installed.', 'onf-core' ); ?></p>
+						<?php endif; ?>
+					</td></tr>
+				<tr><th><label for="onf-reg-notify"><?php esc_html_e( 'Email each registration to', 'onf-core' ); ?></label></th>
+					<td><textarea id="onf-reg-notify" name="reg_notify" rows="2" class="large-text"><?php echo esc_textarea( $s['reg_notify'] ); ?></textarea>
+					<p class="description"><?php esc_html_e( 'One address per line. Empty = no email (registrations still show in Players → From registration).', 'onf-core' ); ?></p></td></tr>
+			</table>
+
 			<h2><?php esc_html_e( 'Donate form', 'onf-core' ); ?></h2>
 			<table class="form-table" role="presentation">
 				<tr><th><label for="onf-amounts"><?php esc_html_e( 'Suggested amounts ($)', 'onf-core' ); ?></label></th>
@@ -228,6 +249,9 @@ add_action(
 			$new[ $key ] = sanitize_textarea_field( $in[ $key ] ?? '' );
 		}
 		$new['player_donations'] = 'onf' === ( $in['player_donations'] ?? '' ) ? 'onf' : 'givewp';
+		$reg_form                = absint( $in['reg_form_id'] ?? 0 );
+		$new['reg_form_id']      = isset( onf_ninja_forms_list()[ $reg_form ] ) ? $reg_form : 0;
+		$new['reg_notify']       = implode( "\n", array_filter( array_map( 'sanitize_email', preg_split( '/[\s,;]+/', (string) ( $in['reg_notify'] ?? '' ), -1, PREG_SPLIT_NO_EMPTY ) ), 'is_email' ) );
 		$new['notify_admins']   = empty( $in['notify_admins'] ) ? 0 : 1;
 		$new['notify_players']  = empty( $in['notify_players'] ) ? 0 : 1;
 
