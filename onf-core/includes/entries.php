@@ -35,7 +35,8 @@ function onf_add_entry( int $player_id, int $event_id, array $args = array() ) {
 			'player_id'  => $player_id,
 			'event_id'   => $event_id,
 			'goal'       => is_numeric( $goal ) ? $goal : null,
-			'sponsor'    => sanitize_text_field( $args['sponsor'] ?? '' ),
+			'sponsor'     => sanitize_text_field( $args['sponsor'] ?? '' ),
+			'jersey_size' => sanitize_text_field( $args['jersey_size'] ?? '' ),
 			'status'     => $args['status'] ?? 'active',
 			'created_at' => current_time( 'mysql' ),
 		)
@@ -75,6 +76,9 @@ function onf_update_entry( int $player_id, int $event_id, array $data ) {
 	}
 	if ( isset( $data['sponsor'] ) ) {
 		$row['sponsor'] = sanitize_text_field( $data['sponsor'] );
+	}
+	if ( isset( $data['jersey_size'] ) ) {
+		$row['jersey_size'] = substr( sanitize_text_field( $data['jersey_size'] ), 0, 20 );
 	}
 	if ( ! $row ) {
 		return false;

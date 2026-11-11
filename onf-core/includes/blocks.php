@@ -855,10 +855,10 @@ function onf_render_player_profile_block( $a, $content, $block ) {
 
 		case 'eyebrow':
 			$bits = array();
-			if ( '' !== $meta( 'jersey' ) ) {
+			if ( '' !== $meta( 'jersey' ) && onf_player_shows( $player, 'number' ) ) {
 				$bits[] = '#' . ltrim( $meta( 'jersey' ), '#' );
 			}
-			if ( '' !== $meta( 'position' ) ) {
+			if ( '' !== $meta( 'position' ) && onf_player_shows( $player, 'position' ) ) {
 				$bits[] = $opts['position'][2][ $meta( 'position' ) ] ?? ucfirst( $meta( 'position' ) );
 			}
 			$current = onf_player_current_event( $player );
@@ -868,16 +868,24 @@ function onf_render_player_profile_block( $a, $content, $block ) {
 			return $bits ? onf_block_wrap( 'onf-eyebrow', esc_html( implode( ' · ', $bits ) ) ) : '';
 
 		case 'facts':
-			$facts = array();
-			if ( '' !== $meta( 'shot' ) ) {
-				$facts[ __( 'Shoots', 'onf-core' ) ] = $opts['shot'][2][ $meta( 'shot' ) ] ?? $meta( 'shot' );
+			// Which facts show is set site-wide (Gifts → Settings) and per event (see player-fields.php).
+			$values = array(
+				'shot'              => array( __( 'Shoots', 'onf-core' ), $opts['shot'][2][ $meta( 'shot' ) ] ?? $meta( 'shot' ) ),
+				'hometown'          => array( __( 'Hometown', 'onf-core' ), $meta( 'hometown' ) ),
+				'size'              => array( __( 'Height / weight', 'onf-core' ), implode( ' · ', array_filter( array( $meta( 'height' ), '' !== $meta( 'weight' ) ? $meta( 'weight' ) . ' lbs' : '' ) ) ) ),
+				'college'           => array( __( 'College', 'onf-core' ), onf_school_with_year( $meta( 'college' ), $meta( 'college_class' ) ) ),
+				'high_school'       => array( __( 'High school', 'onf-core' ), onf_school_with_year( $meta( 'high_school' ), $meta( 'grad_year' ) ) ),
+				'current_team'      => array( __( 'Current team', 'onf-core' ), $meta( 'current_team' ) ),
+				'last_team'         => array( __( 'Last team', 'onf-core' ), $meta( 'last_team' ) ),
+				'favorite_nhl_team' => array( __( 'Favorite NHL team', 'onf-core' ), $meta( 'favorite_nhl_team' ) ),
+				'sponsor'           => array( __( 'Sponsored by', 'onf-core' ), $meta( 'sponsor' ) ),
+			);
+			$facts  = array();
+			foreach ( $values as $item => $pair ) {
+				if ( onf_player_shows( $player, $item ) ) {
+					$facts[ $pair[0] ] = $pair[1];
+				}
 			}
-			$facts[ __( 'Hometown', 'onf-core' ) ] = $meta( 'hometown' );
-			$size                                 = array_filter( array( $meta( 'height' ), '' !== $meta( 'weight' ) ? $meta( 'weight' ) . ' lbs' : '' ) );
-			$facts[ __( 'Height / weight', 'onf-core' ) ] = implode( ' · ', $size );
-			$facts[ __( 'Last team', 'onf-core' ) ]       = $meta( 'last_team' );
-			$facts[ __( 'Favorite NHL team', 'onf-core' ) ] = $meta( 'favorite_nhl_team' );
-			$facts[ __( 'Sponsored by', 'onf-core' ) ]      = $meta( 'sponsor' );
 			$facts = array_filter( $facts, static fn( $v ) => '' !== $v );
 			if ( ! $facts ) {
 				return onf_block_note( __( 'Player profile: fill in the profile fields (right-hand side when editing the player) and they show here.', 'onf-core' ) );
@@ -914,6 +922,9 @@ function onf_render_player_profile_block( $a, $content, $block ) {
 
 		case 'stats':
 			$ep = absint( $meta( 'ep_id' ) );
+			if ( $ep && ! onf_player_shows( $player, 'stats' ) ) {
+				return onf_block_note( __( 'Stats: hidden for this player’s event (event → Show on player pages) or site-wide (Gifts → Settings → Player pages).', 'onf-core' ) );
+			}
 			if ( ! $ep ) {
 				return onf_block_note( __( 'Stats: add the EliteProspects ID in the player profile to show stats here.', 'onf-core' ) );
 			}

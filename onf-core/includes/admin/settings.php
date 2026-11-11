@@ -76,6 +76,19 @@ function onf_render_settings_page() {
 					<p class="description"><?php esc_html_e( 'Switching hides or shows the old [give_form] on player pages only; the page content itself is not changed, so you can switch back at any time.', 'onf-core' ); ?></p></td></tr>
 			</table>
 
+			<h2><?php esc_html_e( 'Player pages', 'onf-core' ); ?></h2>
+			<table class="form-table" role="presentation">
+				<tr><th><?php esc_html_e( 'Show on player pages', 'onf-core' ); ?></th>
+					<td><fieldset>
+						<?php $shown = onf_player_items_sitewide(); ?>
+						<?php foreach ( onf_player_display_items() as $item => $label ) : ?>
+							<label style="display:block;margin-bottom:4px"><input type="checkbox" name="player_show[]" value="<?php echo esc_attr( $item ); ?>" <?php checked( in_array( $item, $shown, true ) ); ?>> <?php echo esc_html( $label ); ?></label>
+						<?php endforeach; ?>
+						<input type="hidden" name="player_show_sent" value="1">
+						<p class="description"><?php esc_html_e( 'Unticked = still collected (player edit screen, registration) but never shown on the site. Each event can hide more for its own players (event → Show on player pages). Jersey size is always collected only.', 'onf-core' ); ?></p>
+					</fieldset></td></tr>
+			</table>
+
 			<h2><?php esc_html_e( 'Registration', 'onf-core' ); ?></h2>
 			<table class="form-table" role="presentation">
 				<tr><th><label for="onf-reg-form"><?php esc_html_e( 'Registration form (Ninja Forms)', 'onf-core' ); ?></label></th>
@@ -249,6 +262,11 @@ add_action(
 			$new[ $key ] = sanitize_textarea_field( $in[ $key ] ?? '' );
 		}
 		$new['player_donations'] = 'onf' === ( $in['player_donations'] ?? '' ) ? 'onf' : 'givewp';
+		if ( ! empty( $in['player_show_sent'] ) ) {
+			$new['player_show'] = array_values( array_intersect( array_keys( onf_player_display_items() ), array_map( 'strval', (array) ( $in['player_show'] ?? array() ) ) ) );
+		} else {
+			$new['player_show'] = $old['player_show'] ?? null;
+		}
 		$reg_form                = absint( $in['reg_form_id'] ?? 0 );
 		$new['reg_form_id']      = isset( onf_ninja_forms_list()[ $reg_form ] ) ? $reg_form : 0;
 		$new['reg_notify']       = implode( "\n", array_filter( array_map( 'sanitize_email', preg_split( '/[\s,;]+/', (string) ( $in['reg_notify'] ?? '' ), -1, PREG_SPLIT_NO_EMPTY ) ), 'is_email' ) );

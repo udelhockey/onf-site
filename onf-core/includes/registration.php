@@ -7,9 +7,9 @@
  * 1. Event: the event whose "Registration link" is the page the form was sent from; else the only event
  *    open for registration; else none (the email says so).
  * 2. Player: same email, else same name (nicknames count: Nick = Nicholas), else a new draft player.
- * 3. Email and phone are updated when they changed (the old ones go into the player's private notes);
- *    position, company/sponsor and favorite NHL team fill blanks only.
- * 4. Entry in the event (company = this event's sponsor). Archived players come back automatically.
+ * 3. Email, phone and current team are kept current (old email/phone go into the player's private notes);
+ *    position, company/sponsor, favorite NHL team, college (+ class), high school (+ grad year) fill blanks only.
+ * 4. Entry in the event (company = this event's sponsor; jersey size, latest wins). Archived players come back.
  * 5. One email to the registration notification list (Gifts → Settings), logged in Gifts → Email log.
  *
  * Fields are found by type and label, not by ONF's own field keys, so any registration form with
@@ -51,7 +51,7 @@ function onf_registration_after_submission( $form_data ) {
  * @return array first, last, email, phone, position, company, team.
  */
 function onf_registration_values( array $fields ) {
-	$v = array_fill_keys( array( 'first', 'last', 'email', 'phone', 'position', 'company', 'team' ), '' );
+	$v = array_fill_keys( array( 'first', 'last', 'email', 'phone', 'position', 'company', 'team', 'jersey_size', 'college', 'college_class', 'high_school', 'grad_year', 'current_team' ), '' );
 	foreach ( $fields as $field ) {
 		$type  = (string) ( $field['type'] ?? '' );
 		$label = strtolower( (string) ( $field['label'] ?? '' ) );
@@ -71,15 +71,32 @@ function onf_registration_values( array $fields ) {
 			$v['phone'] = $value;
 		} elseif ( str_contains( $label, 'position' ) ) {
 			$v['position'] = $value;
+		} elseif ( preg_match( '/jersey.*size|shirt.*size/', $label ) ) {
+			$v['jersey_size'] = $value;
 		} elseif ( preg_match( '/favou?rite.*team/', $label ) ) {
 			$v['team'] = $value;
+		} elseif ( preg_match( '/current.*team/', $label ) ) {
+			$v['current_team'] = $value;
+		} elseif ( preg_match( '/high\s*school/', $label ) && preg_match( '/grad|year|class/', $label ) ) {
+			$v['grad_year'] = $value;
+		} elseif ( preg_match( '/high\s*school/', $label ) ) {
+			$v['high_school'] = $value;
+		} elseif ( preg_match( '/grad(uation)?\s*year/', $label ) ) {
+			$v['grad_year'] = $value;
+		} elseif ( preg_match( '/college|alma mater|university/', $label ) && preg_match( '/class|year/', $label ) ) {
+			$v['college_class'] = $value;
+		} elseif ( preg_match( '/college|alma mater|university/', $label ) ) {
+			$v['college'] = $value;
 		} elseif ( preg_match( '/company|sponsor/', $label ) ) {
 			$v['company'] = $value;
 		}
 	}
 	$v['email'] = sanitize_email( $v['email'] );
-	foreach ( array( 'first', 'last', 'phone', 'position', 'company', 'team' ) as $k ) {
+	foreach ( array_diff( array_keys( $v ), array( 'email' ) ) as $k ) {
 		$v[ $k ] = sanitize_text_field( $v[ $k ] );
+	}
+	foreach ( array( 'college_class', 'grad_year' ) as $k ) {
+		$v[ $k ] = preg_match( '/(19|20)\d{2}/', $v[ $k ], $m ) ? $m[0] : ''; // "Class of '98" → nothing; "1998" → 1998.
 	}
 	return $v;
 }
@@ -268,11 +285,19 @@ function onf_register_from_submission( array $v, string $referer = '' ) {
 			$result['notes'][] = sprintf( __( 'Updated %1$s: %2$s → %3$s', 'onf-core' ), $label, $old, $new );
 		}
 	}
+	// Current team changes from year to year: keep it current.
+	if ( '' !== $v['current_team'] ) {
+		update_post_meta( $player, 'current_team', $v['current_team'] );
+	}
 	// The rest fill blanks only.
 	$fill = array(
 		'position'          => onf_registration_position( $v['position'] ),
 		'sponsor'           => $v['company'],
 		'favorite_nhl_team' => $v['team'],
+		'college'           => $v['college'],
+		'college_class'     => $v['college_class'],
+		'high_school'       => $v['high_school'],
+		'grad_year'         => $v['grad_year'],
 	);
 	foreach ( $fill as $key => $value ) {
 		if ( '' !== $value && '' === trim( (string) get_post_meta( $player, $key, true ) ) ) {
@@ -281,8 +306,18 @@ function onf_register_from_submission( array $v, string $referer = '' ) {
 	}
 
 	if ( $event ) {
-		$added           = onf_add_entry( $player, $event, array( 'sponsor' => $v['company'] ) );
+		$added           = onf_add_entry(
+			$player,
+			$event,
+			array(
+				'sponsor'     => $v['company'],
+				'jersey_size' => $v['jersey_size'],
+			)
+		);
 		$result['entry'] = $added ? 'added' : 'already';
+		if ( ! $added && '' !== $v['jersey_size'] ) {
+			onf_update_entry( $player, $event, array( 'jersey_size' => $v['jersey_size'] ) ); // Latest size wins.
+		}
 		if ( ! $added && '' !== $v['company'] ) {
 			// Already on the roster (added by hand first): give the entry its sponsor if it has none.
 			foreach ( onf_get_player_entries( $player ) as $entry ) {
@@ -352,6 +387,10 @@ function onf_registration_notify( array $r ) {
 				__( 'Position', 'onf-core' )          => $v['position'],
 				__( 'Company', 'onf-core' )           => $v['company'],
 				__( 'Favorite NHL team', 'onf-core' ) => $v['team'],
+				__( 'Jersey size', 'onf-core' )       => $v['jersey_size'],
+				__( 'College', 'onf-core' )           => onf_school_with_year( $v['college'], $v['college_class'] ),
+				__( 'High school', 'onf-core' )       => onf_school_with_year( $v['high_school'], $v['grad_year'] ),
+				__( 'Current team', 'onf-core' )      => $v['current_team'],
 			)
 		);
 		if ( $details ) {

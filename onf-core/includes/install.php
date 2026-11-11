@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-const ONF_CORE_DB_VERSION = '3';
+const ONF_CORE_DB_VERSION = '4'; // 4: entries.jersey_size.
 
 function onf_core_activate() {
 	onf_core_install_tables();
@@ -47,6 +47,7 @@ function onf_core_install_tables() {
 			event_id bigint(20) unsigned NOT NULL,
 			goal decimal(10,2) DEFAULT NULL,
 			sponsor varchar(191) NOT NULL DEFAULT '',
+			jersey_size varchar(20) NOT NULL DEFAULT '',
 			status varchar(20) NOT NULL DEFAULT 'active',
 			created_at datetime NOT NULL,
 			PRIMARY KEY  (id),
