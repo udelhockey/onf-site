@@ -113,7 +113,7 @@ function onf_render_settings_page() {
 			<h2><?php esc_html_e( 'Donate form', 'onf-core' ); ?></h2>
 			<table class="form-table" role="presentation">
 				<tr><th><label for="onf-amounts"><?php esc_html_e( 'Suggested amounts ($)', 'onf-core' ); ?></label></th>
-					<td><input type="text" id="onf-amounts" name="amounts" value="<?php echo esc_attr( $s['amounts'] ); ?>" class="regular-text"> <span class="description"><?php esc_html_e( 'Comma-separated. The second one is pre-selected.', 'onf-core' ); ?></span></td></tr>
+					<td><input type="text" id="onf-amounts" name="amounts" value="<?php echo esc_attr( $s['amounts'] ); ?>" class="regular-text"> <span class="description"><?php esc_html_e( 'Comma-separated. The second one is pre-selected. An event can set its own (Event details → Suggested gift amounts).', 'onf-core' ); ?></span></td></tr>
 				<tr><th><label for="onf-min"><?php esc_html_e( 'Minimum gift ($)', 'onf-core' ); ?></label></th>
 					<td><input type="number" id="onf-min" name="min_amount" value="<?php echo esc_attr( $s['min_amount'] ); ?>" min="1" step="1" class="small-text"></td></tr>
 				<tr><th><?php esc_html_e( 'Card fee (for "cover the fee")', 'onf-core' ); ?></th>

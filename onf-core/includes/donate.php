@@ -132,7 +132,7 @@ function onf_donate_shortcode( $atts ) {
 
 	$uid     = 'onf-donate-' . $instance;
 	$return  = remove_query_arg( array( 'onf_session', 'onf_cancelled', 'onf_donate_error' ), get_permalink( get_queried_object_id() ) ? get_permalink( get_queried_object_id() ) : home_url( add_query_arg( array() ) ) );
-	$amounts = onf_suggested_amounts();
+	$amounts = onf_suggested_amounts( (int) $target['event_id'] );
 	?>
 	<form class="onf-donate__form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="onf_donate">

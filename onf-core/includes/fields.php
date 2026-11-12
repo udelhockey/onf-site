@@ -57,6 +57,7 @@ function onf_field_groups() {
 					'venue'       => array( __( 'Venue', 'onf-core' ), 'text' ),
 					'goal'        => array( __( 'Event goal ($)', 'onf-core' ), 'number' ),
 					'player_goal' => array( __( 'Default player goal ($)', 'onf-core' ), 'number' ),
+					'amounts'     => array( __( 'Suggested gift amounts ($, comma-separated; empty = the site-wide amounts in Gifts → Settings)', 'onf-core' ), 'text' ),
 					'registration_url' => array( __( 'Registration link (shows a Register button while registration is open)', 'onf-core' ), 'url' ),
 				),
 			),

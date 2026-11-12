@@ -88,13 +88,17 @@ function onf_stripe_webhook_secret() {
 }
 
 /**
- * Suggested amounts as numbers.
+ * Suggested amounts as numbers: the event's own (Event details → Suggested amounts), else the site-wide ones.
  *
  * @return float[]
  */
-function onf_suggested_amounts() {
-	$amounts = array_map( 'floatval', preg_split( '/[\s,]+/', (string) onf_setting( 'amounts' ), -1, PREG_SPLIT_NO_EMPTY ) );
-	return array_values( array_filter( $amounts, static fn( $a ) => $a > 0 ) );
+function onf_suggested_amounts( int $event_id = 0 ) {
+	$parse = static function ( $text ) {
+		$amounts = array_map( 'floatval', preg_split( '/[\s,$]+/', (string) $text, -1, PREG_SPLIT_NO_EMPTY ) );
+		return array_values( array_filter( $amounts, static fn( $a ) => $a > 0 ) );
+	};
+	$own = $event_id ? $parse( get_post_meta( $event_id, 'amounts', true ) ) : array();
+	return $own ? $own : $parse( onf_setting( 'amounts' ) );
 }
 
 /**
